@@ -6,8 +6,8 @@ export default function Home() {
     const [dailyCount, setDailyCount] = useState(0);
     const [totalUser, setTotalUser] = useState(0);
     const [totalTx, setTotalTx] = useState(0);
+    const [hoverColor, setHoverColor] = useState('pink-500');
 
-    // === DUAL RPC ===
     const rpcList = [
         "https://tea-sepolia.g.alchemy.com/v2/x9kAVF2fxH9CG2gxfMn5zCbhC_-SoAsD",
         "https://tea-sepolia.g.alchemy.com/v2/hMVs30GZQ5d_sFWTYGx8ZViugptqpksK"
@@ -20,12 +20,11 @@ export default function Home() {
         "event GNed(address indexed user, uint256 timestamp)"
     ];
 
-    // === GET PROVIDER ===
     async function getWorkingProvider() {
         for (const rpc of rpcList) {
             try {
                 const provider = new ethers.JsonRpcProvider(rpc);
-                await provider.getBlockNumber(); // simple ping
+                await provider.getBlockNumber();
                 console.log(`✅ Connected to: ${rpc}`);
                 return provider;
             } catch (err) {
@@ -35,7 +34,6 @@ export default function Home() {
         throw new Error("❌ All RPC failed");
     }
 
-    // === FETCH EVENTS ===
     useEffect(() => {
         async function fetchEvents() {
             const provider = await getWorkingProvider();
@@ -68,7 +66,6 @@ export default function Home() {
         return () => clearInterval(interval);
     }, []);
 
-    // === TX tetap pake wallet signer ===
     async function sendGN() {
         if (!window.ethereum) return setStatus('⚠️ Wallet not found');
 
@@ -86,23 +83,29 @@ export default function Home() {
             } catch (waitErr) {
                 setStatus(`⚠️ TX sent but receipt failed. Check: https://sepolia.tea.xyz/tx/${tx.hash}`);
             }
-
         } catch (err) {
             setStatus(`❌ Error: ${err.message}`);
         }
     }
+
+    const colors = ['pink-500', 'purple-500', 'blue-500', 'green-500', 'yellow-500', 'red-500'];
+
+    const handleMouseEnter = () => {
+        const randomColor = colors[Math.floor(Math.random() * colors.length)];
+        setHoverColor(randomColor);
+    };
 
     return (
         <div className="flex flex-col items-center justify-center min-h-screen bg-black text-white space-y-4 p-4">
             <h1 className="text-4xl font-bold">gn tea sepolia</h1>
             <button
                 onClick={sendGN}
-                className="bg-pink-500 hover:bg-pink-600 text-white font-bold py-2 px-6 rounded-full transition-all"
+                onMouseEnter={handleMouseEnter}
+                className={`bg-${hoverColor} text-white font-bold py-2 px-6 rounded-full transition-all duration-200 transform hover:scale-105 hover:animate-tremble`}
             >
                 gn
             </button>
 
-            {/* === Stats === */}
             <div className="text-sm mt-4 space-y-1 text-center">
                 <p>💎 Total TX (onchain): {totalTx}</p>
                 <p>✅ Total Unique Users Today: {dailyCount}</p>
@@ -111,20 +114,29 @@ export default function Home() {
                 <p>Chain ID: 10218 (Tea Sepolia)</p>
             </div>
 
-            {/* === Footer === */}
             <div className="text-xs mt-8 opacity-70 text-center transition-all hover:opacity-100 hover:scale-105">
                 Built by <a href="https://github.com/H15S" target="_blank" className="underline hover:text-pink-400">H15S</a>
-                
-                
             </div>
 
             <div className="text-xs mt-8 opacity-70 text-center transition-all hover:opacity-100 hover:scale-105">
-             <a href="https://github.com/SpeedCandy" target="_blank" className="underline hover:text-red-400">Thank you for making it open source!</a>
-                
-                
+                <a href="https://github.com/SpeedCandy" target="_blank" className="underline hover:text-red-400">Thank you for making it open source!</a>
             </div>
 
             <p>{status}</p>
+
+            <style jsx>{`
+                @keyframes tremble {
+                    0% { transform: translate(0, 0) rotate(0deg); }
+                    20% { transform: translate(-2px, 2px) rotate(-2deg); }
+                    40% { transform: translate(2px, -2px) rotate(2deg); }
+                    60% { transform: translate(-2px, 0) rotate(-1deg); }
+                    80% { transform: translate(2px, 0) rotate(1deg); }
+                    100% { transform: translate(0, 0) rotate(0deg); }
+                }
+                .animate-tremble {
+                    animation: tremble 0.3s infinite;
+                }
+            `}</style>
         </div>
     );
 }
