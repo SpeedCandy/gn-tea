@@ -6,7 +6,7 @@ export default function Home() {
     const [dailyCount, setDailyCount] = useState(0);
     const [totalUser, setTotalUser] = useState(0);
     const [totalTx, setTotalTx] = useState(0);
-    const [hoverColor, setHoverColor] = useState('pink-500');
+    const [hoverColor, setHoverColor] = useState('pink');
 
     const rpcList = [
         "https://tea-sepolia.g.alchemy.com/v2/x9kAVF2fxH9CG2gxfMn5zCbhC_-SoAsD",
@@ -88,11 +88,21 @@ export default function Home() {
         }
     }
 
-    const colors = ['pink-500', 'purple-500', 'blue-500', 'green-500', 'yellow-500', 'red-500'];
+    const colors = ['pink', 'purple', 'blue', 'green', 'yellow', 'red'];
 
     const handleMouseEnter = () => {
         const randomColor = colors[Math.floor(Math.random() * colors.length)];
         setHoverColor(randomColor);
+    };
+
+    // Tailwind'in renklerine uygun hex kodları
+    const colorMap = {
+        pink: '#EC4899',
+        purple: '#A855F7',
+        blue: '#3B82F6',
+        green: '#10B981',
+        yellow: '#F59E0B',
+        red: '#EF4444',
     };
 
     return (
@@ -101,7 +111,8 @@ export default function Home() {
             <button
                 onClick={sendGN}
                 onMouseEnter={handleMouseEnter}
-                className={`bg-${hoverColor} text-white font-bold py-2 px-6 rounded-full transition-all duration-200 transform hover:scale-105 hover:animate-tremble`}
+                style={{ backgroundColor: colorMap[hoverColor] }}
+                className="text-white font-bold py-2 px-6 rounded-full transition-all duration-200 transform hover:scale-105 hover:animate-tremble"
             >
                 gn
             </button>
