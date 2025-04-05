@@ -80,12 +80,26 @@ export default function Home() {
     async function sendSingleGN(signer, nonce, provider) {
         if (!window.ethereum) throw new Error('Wallet not found');
         const contract = new ethers.Contract(contractAddress, abi, signer);
-        const gasPrice = await provider.getFeeData().then(fee => fee.gasPrice);
-        const tx = await contract.gn({
+        const feeData = await provider.getFeeData();
+        
+        // Handle both legacy and EIP-1559 gas pricing
+        const txOptions = {
             nonce: nonce,
-            gasLimit: 60000,
-            gasPrice: gasPrice.mul(110).div(100) // 10% buffer over current gas price
-        });
+            gasLimit: 60000
+        };
+
+        if (feeData.gasPrice) {
+            // Legacy gas pricing
+            txOptions.gasPrice = ethers.BigNumber.from(feeData.gasPrice).mul(11).div(10); // 10% buffer
+        } else if (feeData.maxFeePerGas && feeData.maxPriorityFeePerGas) {
+            // EIP-1559 pricing
+            txOptions.maxFeePerGas = ethers.BigNumber.from(feeData.maxFeePerGas).mul(11).div(10);
+            txOptions.maxPriorityFeePerGas = ethers.BigNumber.from(feeData.maxPriorityFeePerGas);
+        } else {
+            throw new Error('Unable to determine gas pricing');
+        }
+
+        const tx = await contract.gn(txOptions);
         return tx;
     }
 
@@ -141,10 +155,9 @@ export default function Home() {
                     } catch (waitErr) {
                         addStatusMessage(`⚠️ Transaction ${i + 1}/20 sent but receipt failed: ${tx.hash}`);
                     }
-                    await delay(1000); // Increased delay to 1 second
+                    await delay(1000);
                 } catch (err) {
                     addStatusMessage(`❌ Error sending transaction ${i + 1}: ${err.message}`);
-                    // Re-fetch nonce on failure to recover from potential nonce drift
                     nonce = await provider.getTransactionCount(await signer.getAddress(), 'pending');
                 }
             }
