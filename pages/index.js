@@ -78,9 +78,6 @@ export default function Home() {
             const id = `moon-${Date.now()}-${i}`;
             const duration = 1.5 + Math.random() * 1.5; // Between 1.5s and 3s
             newElements.push({ id, type: 'moon', x: Math.random() * 100, duration });
-            setTimeout(() => {
-                setFallingElements(prev => prev.filter(el => el.id !== id));
-            }, duration * 1000);
         }
 
         // Create 10 stars
@@ -88,12 +85,14 @@ export default function Home() {
             const id = `star-${Date.now()}-${i}`;
             const duration = 1.5 + Math.random() * 1.5; // Between 1.5s and 3s
             newElements.push({ id, type: 'star', x: Math.random() * 100, duration });
-            setTimeout(() => {
-                setFallingElements(prev => prev.filter(el => el.id !== id));
-            }, duration * 1000);
         }
 
         setFallingElements(prev => [...prev, ...newElements]);
+    }
+
+    // === REMOVE FALLING ELEMENT ===
+    function removeFallingElement(id) {
+        setFallingElements(prev => prev.filter(el => el.id !== id));
     }
 
     // === TX tetap pake wallet signer ===
@@ -123,7 +122,7 @@ export default function Home() {
     }
 
     // === FALLING ELEMENT COMPONENT ===
-    function FallingElement({ type, x, duration }) {
+    function FallingElement({ id, type, x, duration, onAnimationEnd }) {
         const symbol = type === 'moon' ? '🌙' : '⭐';
         const fontSize = type === 'moon' ? '32px' : '16px';
 
@@ -138,7 +137,11 @@ export default function Home() {
             zIndex: 10,
         };
 
-        return <div style={style}>{symbol}</div>;
+        return (
+            <div style={style} onAnimationEnd={() => onAnimationEnd(id)}>
+                {symbol}
+            </div>
+        );
     }
 
     return (
@@ -173,7 +176,14 @@ export default function Home() {
 
             {/* === Render Falling Elements === */}
             {fallingElements.map(el => (
-                <FallingElement key={el.id} type={el.type} x={el.x} duration={el.duration} />
+                <FallingElement
+                    key={el.id}
+                    id={el.id}
+                    type={el.type}
+                    x={el.x}
+                    duration={el.duration}
+                    onAnimationEnd={removeFallingElement}
+                />
             ))}
 
             {/* === Global Animation Styles === */}
