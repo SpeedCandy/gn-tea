@@ -134,7 +134,8 @@ export default function Home() {
             animationName: 'fall',
             animationDuration: `${duration}s`,
             animationTimingFunction: 'linear',
-            zIndex: 10,
+            animationIterationCount: 1, 
+            zIndex: -1, 
         };
 
         return (
