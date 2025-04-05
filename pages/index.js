@@ -94,7 +94,7 @@ export default function Home() {
 
     return (
         <div className="flex flex-col items-center justify-center min-h-screen bg-black text-white space-y-4 p-4">
-            <h1 className="text-4xl font-bold">gm tea sepolia</h1>
+            <h1 className="text-4xl font-bold">gn tea sepolia</h1>
             <button
                 onClick={sendGM}
                 className="bg-pink-500 hover:bg-pink-600 text-white font-bold py-2 px-6 rounded-full transition-all"
@@ -113,7 +113,9 @@ export default function Home() {
 
             {/* === Footer === */}
             <div className="text-xs mt-8 opacity-70 text-center transition-all hover:opacity-100 hover:scale-105">
-                Built by <a href="https://github.com/H15S" target="_blank" className="underline hover:text-pink-400">H15S</a>
+                Built by <a href="https://github.com/H15S" target="_blank" className="underline hover:text-pink-400">H15S Thank you for making it open source!</a>
+                
+                
             </div>
 
             <p>{status}</p>
