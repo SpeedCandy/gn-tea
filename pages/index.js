@@ -176,7 +176,7 @@ export default function Home() {
                 </div>
 
                 <div className="text-sm mt-4 space-y-1 text-center">
-                    <p>💎 Total TX (onchain): {totalTx}</p>
+                    <p>💎 Total TX (onchain):  <Analytics /> {totalTx}</p>
                     <p>✅ Total Unique Users Today: {dailyCount}</p>
                     <p>✅ Total Unique Users All Time: {totalUser}</p>
                     <p>Contract: <a href={`https://sepolia.tea.xyz/address/${contractAddress}`} target="_blank" className="underline text-pink-400">{contractAddress}</a></p>
