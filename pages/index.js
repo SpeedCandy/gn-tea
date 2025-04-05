@@ -66,17 +66,19 @@ export default function Home() {
         return () => clearInterval(interval);
     }, []);
 
-    async function sendGN() {
-        if (!window.ethereum) return setStatus('⚠️ Wallet not found');
-
+    async function sendSingleGN() {
+        if (!window.ethereum) throw new Error('Wallet not found');
         const provider = new ethers.BrowserProvider(window.ethereum);
         const signer = await provider.getSigner();
         const contract = new ethers.Contract(contractAddress, abi, signer);
+        const tx = await contract.gn();
+        return tx;
+    }
 
+    async function sendGN() {
         try {
-            const tx = await contract.gn();
+            const tx = await sendSingleGN();
             setStatus(`✅ TX Sent! Hash: ${tx.hash}`);
-
             try {
                 await tx.wait();
                 setStatus(`✅ Confirmed! TX Hash: https://sepolia.tea.xyz/tx/${tx.hash}`);
@@ -88,6 +90,37 @@ export default function Home() {
         }
     }
 
+    async function sendTurboGN() {
+        setStatus('Starting to send 20 gn transactions...');
+        const txPromises = [];
+        for (let i = 0; i < 20; i++) {
+            const txPromise = sendSingleGN()
+                .then(tx => {
+                    setStatus(prev => `${prev}\nSent transaction ${i + 1}/20: ${tx.hash}`);
+                    return tx;
+                })
+                .catch(err => {
+                    setStatus(prev => `${prev}\nError sending transaction ${i + 1}: ${err.message}`);
+                    throw err;
+                });
+            txPromises.push(txPromise);
+        }
+        try {
+            const txResponses = await Promise.all(txPromises);
+            setStatus(prev => `${prev}\nAll transactions sent. Waiting for confirmations...`);
+            const receiptPromises = txResponses.map(tx =>
+                tx.wait().then(receipt => {
+                    setStatus(prev => `${prev}\nTransaction confirmed: ${tx.hash}`);
+                    return receipt;
+                })
+            );
+            await Promise.all(receiptPromises);
+            setStatus(prev => `${prev}\nAll 20 transactions confirmed!`);
+        } catch (err) {
+            // Errors are handled within each promise; this catch is for Promise.all rejection
+        }
+    }
+
     const colors = ['pink', 'purple', 'blue', 'green', 'yellow', 'red'];
 
     const handleMouseEnter = () => {
@@ -95,7 +128,6 @@ export default function Home() {
         setHoverColor(randomColor);
     };
 
-    // Tailwind'in renklerine uygun hex kodları
     const colorMap = {
         pink: '#EC4899',
         purple: '#A855F7',
@@ -108,14 +140,24 @@ export default function Home() {
     return (
         <div className="flex flex-col items-center justify-center min-h-screen bg-black text-white space-y-4 p-4">
             <h1 className="text-4xl font-bold">gn tea sepolia</h1>
-            <button
-                onClick={sendGN}
-                onMouseEnter={handleMouseEnter}
-                style={{ backgroundColor: colorMap[hoverColor] }}
-                className="text-white font-bold py-2 px-6 rounded-full transition-all duration-200 transform hover:scale-105 hover:animate-tremble"
-            >
-                gn
-            </button>
+            <div className="flex space-x-4">
+                <button
+                    onClick={sendGN}
+                    onMouseEnter={handleMouseEnter}
+                    style={{ backgroundColor: colorMap[hoverColor] }}
+                    className="text-white font-bold py-2 px-6 rounded-full transition-all duration-200 transform hover:scale-105 hover:animate-tremble"
+                >
+                    gn
+                </button>
+                <button
+                    onClick={sendTurboGN}
+                    onMouseEnter={handleMouseEnter}
+                    style={{ backgroundColor: colorMap[hoverColor] }}
+                    className="text-white font-bold py-2 px-6 rounded-full transition-all duration-200 transform hover:scale-105 hover:animate-tremble"
+                >
+                    turbo
+                </button>
+            </div>
 
             <div className="text-sm mt-4 space-y-1 text-center">
                 <p>💎 Total TX (onchain): {totalTx}</p>
@@ -130,10 +172,10 @@ export default function Home() {
             </div>
 
             <div className="text-xs mt-8 opacity-70 text-center transition-all hover:opacity-100 hover:scale-105">
-                <a href="https://github.com/SpeedCandy" target="_blank" className="underline hover:text-red-400">testThank you for making it open source!</a>
+                <a href="https://github.com/SpeedCandy" target="_blank" className="underline hover:text-red-400">Thank you for making it open source!</a>
             </div>
 
-            <p>{status}</p>
+            <div style={{ whiteSpace: 'pre-wrap' }}>{status}</div>
 
             <style jsx>{`
                 @keyframes tremble {
