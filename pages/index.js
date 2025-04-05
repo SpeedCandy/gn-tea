@@ -6,6 +6,7 @@ export default function Home() {
     const [dailyCount, setDailyCount] = useState(0);
     const [totalUser, setTotalUser] = useState(0);
     const [totalTx, setTotalTx] = useState(0);
+    const [fallingElements, setFallingElements] = useState([]);
 
     // === DUAL RPC ===
     const rpcList = [
@@ -68,8 +69,37 @@ export default function Home() {
         return () => clearInterval(interval);
     }, []);
 
+    // === CREATE FALLING ELEMENTS ===
+    function createFallingElements() {
+        const newElements = [];
+
+        // Create 5 moons
+        for (let i = 0; i < 5; i++) {
+            const id = `moon-${Date.now()}-${i}`;
+            const duration = 1.5 + Math.random() * 1.5; // Between 1.5s and 3s
+            newElements.push({ id, type: 'moon', x: Math.random() * 100, duration });
+            setTimeout(() => {
+                setFallingElements(prev => prev.filter(el => el.id !== id));
+            }, duration * 1000);
+        }
+
+        // Create 10 stars
+        for (let i = 0; i < 10; i++) {
+            const id = `star-${Date.now()}-${i}`;
+            const duration = 1.5 + Math.random() * 1.5; // Between 1.5s and 3s
+            newElements.push({ id, type: 'star', x: Math.random() * 100, duration });
+            setTimeout(() => {
+                setFallingElements(prev => prev.filter(el => el.id !== id));
+            }, duration * 1000);
+        }
+
+        setFallingElements(prev => [...prev, ...newElements]);
+    }
+
     // === TX tetap pake wallet signer ===
     async function sendGN() {
+        createFallingElements(); // Trigger animation immediately on button click
+
         if (!window.ethereum) return setStatus('⚠️ Wallet not found');
 
         const provider = new ethers.BrowserProvider(window.ethereum);
@@ -90,6 +120,25 @@ export default function Home() {
         } catch (err) {
             setStatus(`❌ Error: ${err.message}`);
         }
+    }
+
+    // === FALLING ELEMENT COMPONENT ===
+    function FallingElement({ type, x, duration }) {
+        const symbol = type === 'moon' ? '🌙' : '⭐';
+        const fontSize = type === 'moon' ? '32px' : '16px';
+
+        const style = {
+            position: 'fixed',
+            top: 0,
+            left: `${x}%`,
+            fontSize,
+            animationName: 'fall',
+            animationDuration: `${duration}s`,
+            animationTimingFunction: 'linear',
+            zIndex: 10,
+        };
+
+        return <div style={style}>{symbol}</div>;
     }
 
     return (
@@ -114,17 +163,39 @@ export default function Home() {
             {/* === Footer === */}
             <div className="text-xs mt-8 opacity-70 text-center transition-all hover:opacity-100 hover:scale-105">
                 Built by <a href="https://github.com/H15S" target="_blank" className="underline hover:text-pink-400">H15S</a>
-                
-                
             </div>
 
             <div className="text-xs mt-8 opacity-70 text-center transition-all hover:opacity-100 hover:scale-105">
-             <a href="https://github.com/SpeedCandy" target="_blank" className="underline hover:text-red-400">Thank you for making it open source!</a>
-                
-                
+                <a href="https://github.com/SpeedCandy" target="_blank" className="underline hover:text-red-400">Thank you for making it open source!</a>
             </div>
 
             <p>{status}</p>
+
+            {/* === Render Falling Elements === */}
+            {fallingElements.map(el => (
+                <FallingElement key={el.id} type={el.type} x={el.x} duration={el.duration} />
+            ))}
+
+            {/* === Global Animation Styles === */}
+            <style jsx global>{`
+                @keyframes fall {
+                    0% {
+                        transform: translateY(0) translateX(0);
+                    }
+                    25% {
+                        transform: translateY(25vh) translateX(5vw);
+                    }
+                    50% {
+                        transform: translateY(50vh) translateX(-5vw);
+                    }
+                    75% {
+                        transform: translateY(75vh) translateX(5vw);
+                    }
+                    100% {
+                        transform: translateY(100vh) translateX(0);
+                    }
+                }
+            `}</style>
         </div>
     );
 }
