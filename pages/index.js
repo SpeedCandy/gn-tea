@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react';
 import { ethers } from 'ethers';
-import { Analytics } from "@vercel/analytics/react"
+
 export default function Home() {
     const [statusMessages, setStatusMessages] = useState([]);
     const [dailyCount, setDailyCount] = useState(0);
     const [totalUser, setTotalUser] = useState(0);
     const [totalTx, setTotalTx] = useState(0);
     const [hoverColor, setHoverColor] = useState('pink');
-    const [leaderboard, setLeaderboard] = useState([]); // New state for leaderboard
+    const [leaderboard, setLeaderboard] = useState([]);
 
     const rpcList = [
         "https://tea-sepolia.g.alchemy.com/v2/x9kAVF2fxH9CG2gxfMn5zCbhC_-SoAsD",
@@ -47,7 +47,7 @@ export default function Home() {
             const userSet = new Set();
             const dailySet = new Set();
             const today = new Date().toDateString();
-            const userCountMap = new Map(); // Map to count GNed events per user
+            const userCountMap = new Map();
 
             logs.forEach(log => {
                 const user = log.args.user.toLowerCase();
@@ -56,14 +56,12 @@ export default function Home() {
                 if (time === today) {
                     dailySet.add(user);
                 }
-                // Increment count for this user in the map
                 userCountMap.set(user, (userCountMap.get(user) || 0) + 1);
             });
 
-            // Convert map to array, sort by count, and take top 10
             const sortedLeaderboard = Array.from(userCountMap.entries())
-                .sort((a, b) => b[1] - a[1]) // Sort descending by count
-                .slice(0, 10) // Top 10 users
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 10)
                 .map(([user, count], index) => ({ rank: index + 1, user, count }));
 
             setTotalUser(userSet.size);
@@ -77,12 +75,17 @@ export default function Home() {
         return () => clearInterval(interval);
     }, []);
 
-    async function sendSingleGN() {
+    const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+    async function sendSingleGN(signer, nonce, provider) {
         if (!window.ethereum) throw new Error('Wallet not found');
-        const provider = new ethers.BrowserProvider(window.ethereum);
-        const signer = await provider.getSigner();
         const contract = new ethers.Contract(contractAddress, abi, signer);
-        const tx = await contract.gn();
+        const gasPrice = await provider.getFeeData().then(fee => fee.gasPrice);
+        const tx = await contract.gn({
+            nonce: nonce,
+            gasLimit: 60000,
+            gasPrice: gasPrice.mul(110).div(100) // 10% buffer over current gas price
+        });
         return tx;
     }
 
@@ -90,9 +93,24 @@ export default function Home() {
         setStatusMessages(prev => [...prev, { message, timestamp: new Date().toLocaleTimeString() }]);
     };
 
+    async function retryOperation(operation, maxRetries = 3) {
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                return await operation();
+            } catch (err) {
+                if (attempt === maxRetries) throw err;
+                addStatusMessage(`Retrying (${attempt}/${maxRetries}) due to: ${err.message}`);
+                await delay(1000 * attempt);
+            }
+        }
+    }
+
     async function sendGN() {
         try {
-            const tx = await sendSingleGN();
+            const provider = new ethers.BrowserProvider(window.ethereum);
+            const signer = await provider.getSigner();
+            const nonce = await provider.getTransactionCount(await signer.getAddress(), 'pending');
+            const tx = await retryOperation(() => sendSingleGN(signer, nonce, provider));
             addStatusMessage(`✅ TX Sent! Hash: ${tx.hash}`);
             try {
                 await tx.wait();
@@ -107,32 +125,32 @@ export default function Home() {
 
     async function sendTurboGN() {
         addStatusMessage('Starting to send 20 gn transactions...');
-        const txPromises = [];
-        for (let i = 0; i < 20; i++) {
-            const txPromise = sendSingleGN()
-                .then(tx => {
-                    addStatusMessage(`Sent transaction ${i + 1}/20: ${tx.hash}`);
-                    return tx;
-                })
-                .catch(err => {
-                    addStatusMessage(`Error sending transaction ${i + 1}: ${err.message}`);
-                    throw err;
-                });
-            txPromises.push(txPromise);
-        }
         try {
-            const txResponses = await Promise.all(txPromises);
-            addStatusMessage('All transactions sent. Waiting for confirmations...');
-            const receiptPromises = txResponses.map(tx =>
-                tx.wait().then(receipt => {
-                    addStatusMessage(`Transaction confirmed: ${tx.hash}`);
-                    return receipt;
-                })
-            );
-            await Promise.all(receiptPromises);
-            addStatusMessage('All 20 transactions confirmed!');
+            const provider = new ethers.BrowserProvider(window.ethereum);
+            const signer = await provider.getSigner();
+            let nonce = await provider.getTransactionCount(await signer.getAddress(), 'pending');
+
+            for (let i = 0; i < 20; i++) {
+                try {
+                    const tx = await retryOperation(() => sendSingleGN(signer, nonce, provider));
+                    addStatusMessage(`Sent transaction ${i + 1}/20: ${tx.hash}`);
+                    nonce++;
+                    try {
+                        await tx.wait();
+                        addStatusMessage(`Transaction ${i + 1}/20 confirmed: ${tx.hash}`);
+                    } catch (waitErr) {
+                        addStatusMessage(`⚠️ Transaction ${i + 1}/20 sent but receipt failed: ${tx.hash}`);
+                    }
+                    await delay(1000); // Increased delay to 1 second
+                } catch (err) {
+                    addStatusMessage(`❌ Error sending transaction ${i + 1}: ${err.message}`);
+                    // Re-fetch nonce on failure to recover from potential nonce drift
+                    nonce = await provider.getTransactionCount(await signer.getAddress(), 'pending');
+                }
+            }
+            addStatusMessage('All 20 transactions processed!');
         } catch (err) {
-            // Errors are handled within each promise
+            addStatusMessage(`❌ Turbo Error: ${err.message}`);
         }
     }
 
@@ -171,12 +189,12 @@ export default function Home() {
                         style={{ backgroundColor: colorMap[hoverColor] }}
                         className="text-white font-bold py-2 px-6 rounded-full transition-all duration-200 transform hover:scale-105 hover:animate-tremble"
                     >
-                        turbo gn
+                        turbo
                     </button>
                 </div>
 
                 <div className="text-sm mt-4 space-y-1 text-center">
-                    <p>💎 Total TX (onchain):  <Analytics /> {totalTx}</p>
+                    <p>💎 Total TX (onchain): {totalTx}</p>
                     <p>✅ Total Unique Users Today: {dailyCount}</p>
                     <p>✅ Total Unique Users All Time: {totalUser}</p>
                     <p>Contract: <a href={`https://sepolia.tea.xyz/address/${contractAddress}`} target="_blank" className="underline text-pink-400">{contractAddress}</a></p>
@@ -252,7 +270,7 @@ export default function Home() {
                 @keyframes tremble {
                     0% { transform: translate(0, 0) rotate(0deg); }
                     20% { transform: translate(-2px, 2px) rotate(-2deg); }
-                    40bundan sonra ne yapmam gerekiyor? { transform: translate(2px, -2px) rotate(2deg); }
+                    40% { transform: translate(2px, -2px) rotate(2deg); }
                     60% { transform: translate(-2px, 0) rotate(-1deg); }
                     80% { transform: translate(2px, 0) rotate(1deg); }
                     100% { transform: translate(0, 0) rotate(0deg); }
