@@ -10,8 +10,8 @@ export default function Home() {
 
     // === DUAL RPC ===
     const rpcList = [
-        "https://tea-sepolia.g.alchemy.com/v2/bsayB3hJ3hij6-t5YUUQBL5jDV-o5h2f",
-        "https://tea-sepolia.g.alchemy.com/v2/Wa-bUwSDb2nujeYWyIZ9eHK3XXsxiM8j"
+        "https://tea-sepolia.g.alchemy.com/v2/x9kAVF2fxH9CG2gxfMn5zCbhC_-SoAsD",
+        "https://tea-sepolia.g.alchemy.com/v2/hMVs30GZQ5d_sFWTYGx8ZViugptqpksK"
     ];
 
     const contractAddress = "0xEdF7dE119Fe7c0d2c0252a2e47E0c7FBc3FE1D4a";
