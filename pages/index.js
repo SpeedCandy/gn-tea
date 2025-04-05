@@ -69,7 +69,7 @@ export default function Home() {
     }, []);
 
     // === TX tetap pake wallet signer ===
-    async function sendGM() {
+    async function sendGN() {
         if (!window.ethereum) return setStatus('⚠️ Wallet not found');
 
         const provider = new ethers.BrowserProvider(window.ethereum);
@@ -77,7 +77,7 @@ export default function Home() {
         const contract = new ethers.Contract(contractAddress, abi, signer);
 
         try {
-            const tx = await contract.gm();
+            const tx = await contract.gn();
             setStatus(`✅ TX Sent! Hash: ${tx.hash}`);
 
             try {
@@ -96,10 +96,10 @@ export default function Home() {
         <div className="flex flex-col items-center justify-center min-h-screen bg-black text-white space-y-4 p-4">
             <h1 className="text-4xl font-bold">gn tea sepolia</h1>
             <button
-                onClick={sendGM}
+                onClick={sendGN}
                 className="bg-pink-500 hover:bg-pink-600 text-white font-bold py-2 px-6 rounded-full transition-all"
             >
-                gm
+                gn
             </button>
 
             {/* === Stats === */}
