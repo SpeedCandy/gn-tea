@@ -134,8 +134,8 @@ export default function Home() {
             animationName: 'fall',
             animationDuration: `${duration}s`,
             animationTimingFunction: 'linear',
-            animationIterationCount: 1, 
-            zIndex: -1, 
+            animationIterationCount: 1, // Animasyonun sadece bir kez çalışmasını sağlar
+            zIndex: 0, // Yazıların arkasında ama arka planın önünde
         };
 
         return (
@@ -146,7 +146,7 @@ export default function Home() {
     }
 
     return (
-        <div className="flex flex-col items-center justify-center min-h-screen bg-black text-white space-y-4 p-4">
+        <div className="flex flex-col items-center justify-center min-h-screen bg-black text-white space-y-4 p-4" style={{ position: 'relative', zIndex: 1 }}>
             <h1 className="text-4xl font-bold">gn tea sepolia</h1>
             <button
                 onClick={sendGN}
