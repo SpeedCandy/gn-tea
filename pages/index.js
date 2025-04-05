@@ -171,7 +171,7 @@ export default function Home() {
                         style={{ backgroundColor: colorMap[hoverColor] }}
                         className="text-white font-bold py-2 px-6 rounded-full transition-all duration-200 transform hover:scale-105 hover:animate-tremble"
                     >
-                        turbo
+                        turbo gn
                     </button>
                 </div>
 
