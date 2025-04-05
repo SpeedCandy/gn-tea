@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { ethers } from 'ethers';
-
+import { Analytics } from "@vercel/analytics/react"
 export default function Home() {
     const [statusMessages, setStatusMessages] = useState([]);
     const [dailyCount, setDailyCount] = useState(0);
