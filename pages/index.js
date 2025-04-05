@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { ethers } from 'ethers';
 
 export default function Home() {
-    const [status, setStatus] = useState('');
+    const [statusMessages, setStatusMessages] = useState([]); // Array to store status messages with timestamps
     const [dailyCount, setDailyCount] = useState(0);
     const [totalUser, setTotalUser] = useState(0);
     const [totalTx, setTotalTx] = useState(0);
@@ -75,49 +75,53 @@ export default function Home() {
         return tx;
     }
 
+    const addStatusMessage = (message) => {
+        setStatusMessages(prev => [...prev, { message, timestamp: new Date().toLocaleTimeString() }]);
+    };
+
     async function sendGN() {
         try {
             const tx = await sendSingleGN();
-            setStatus(`✅ TX Sent! Hash: ${tx.hash}`);
+            addStatusMessage(`✅ TX Sent! Hash: ${tx.hash}`);
             try {
                 await tx.wait();
-                setStatus(`✅ Confirmed! TX Hash: https://sepolia.tea.xyz/tx/${tx.hash}`);
+                addStatusMessage(`✅ Confirmed! TX Hash: https://sepolia.tea.xyz/tx/${tx.hash}`);
             } catch (waitErr) {
-                setStatus(`⚠️ TX sent but receipt failed. Check: https://sepolia.tea.xyz/tx/${tx.hash}`);
+                addStatusMessage(`⚠️ TX sent but receipt failed. Check: https://sepolia.tea.xyz/tx/${tx.hash}`);
             }
         } catch (err) {
-            setStatus(`❌ Error: ${err.message}`);
+            addStatusMessage(`❌ Error: ${err.message}`);
         }
     }
 
     async function sendTurboGN() {
-        setStatus('Starting to send 20 gn transactions...');
+        addStatusMessage('Starting to send 20 gn transactions...');
         const txPromises = [];
         for (let i = 0; i < 20; i++) {
             const txPromise = sendSingleGN()
                 .then(tx => {
-                    setStatus(prev => `${prev}\nSent transaction ${i + 1}/20: ${tx.hash}`);
+                    addStatusMessage(`Sent transaction ${i + 1}/20: ${tx.hash}`);
                     return tx;
                 })
                 .catch(err => {
-                    setStatus(prev => `${prev}\nError sending transaction ${i + 1}: ${err.message}`);
+                    addStatusMessage(`Error sending transaction ${i + 1}: ${err.message}`);
                     throw err;
                 });
             txPromises.push(txPromise);
         }
         try {
             const txResponses = await Promise.all(txPromises);
-            setStatus(prev => `${prev}\nAll transactions sent. Waiting for confirmations...`);
+            addStatusMessage('All transactions sent. Waiting for confirmations...');
             const receiptPromises = txResponses.map(tx =>
                 tx.wait().then(receipt => {
-                    setStatus(prev => `${prev}\nTransaction confirmed: ${tx.hash}`);
+                    addStatusMessage(`Transaction confirmed: ${tx.hash}`);
                     return receipt;
                 })
             );
             await Promise.all(receiptPromises);
-            setStatus(prev => `${prev}\nAll 20 transactions confirmed!`);
+            addStatusMessage('All 20 transactions confirmed!');
         } catch (err) {
-            // Errors are handled within each promise; this catch is for Promise.all rejection
+            // Errors are handled within each promise
         }
     }
 
@@ -138,44 +142,66 @@ export default function Home() {
     };
 
     return (
-        <div className="flex flex-col items-center justify-center min-h-screen bg-black text-white space-y-4 p-4">
-            <h1 className="text-4xl font-bold">gn tea sepolia</h1>
-            <div className="flex space-x-4">
-                <button
-                    onClick={sendGN}
-                    onMouseEnter={handleMouseEnter}
-                    style={{ backgroundColor: colorMap[hoverColor] }}
-                    className="text-white font-bold py-2 px-6 rounded-full transition-all duration-200 transform hover:scale-105 hover:animate-tremble"
-                >
-                    gn
-                </button>
-                <button
-                    onClick={sendTurboGN}
-                    onMouseEnter={handleMouseEnter}
-                    style={{ backgroundColor: colorMap[hoverColor] }}
-                    className="text-white font-bold py-2 px-6 rounded-full transition-all duration-200 transform hover:scale-105 hover:animate-tremble"
-                >
-                    turbo
-                </button>
+        <div className="flex flex-col items-center justify-between min-h-screen bg-black text-white space-y-4 p-4">
+            <div className="flex flex-col items-center space-y-4">
+                <h1 className="text-4xl font-bold">gn tea sepolia</h1>
+                <div className="flex space-x-4">
+                    <button
+                        onClick={sendGN}
+                        onMouseEnter={handleMouseEnter}
+                        style={{ backgroundColor: colorMap[hoverColor] }}
+                        className="text-white font-bold py-2 px-6 rounded-full transition-all duration-200 transform hover:scale-105 hover:animate-tremble"
+                    >
+                        gn
+                    </button>
+                    <button
+                        onClick={sendTurboGN}
+                        onMouseEnter={handleMouseEnter}
+                        style={{ backgroundColor: colorMap[hoverColor] }}
+                        className="text-white font-bold py-2 px-6 rounded-full transition-all duration-200 transform hover:scale-105 hover:animate-tremble"
+                    >
+                        turbo
+                    </button>
+                </div>
+
+                <div className="text-sm mt-4 space-y-1 text-center">
+                    <p>💎 Total TX (onchain): {totalTx}</p>
+                    <p>✅ Total Unique Users Today: {dailyCount}</p>
+                    <p>✅ Total Unique Users All Time: {totalUser}</p>
+                    <p>Contract: <a href={`https://sepolia.tea.xyz/address/${contractAddress}`} target="_blank" className="underline text-pink-400">{contractAddress}</a></p>
+                    <p>Chain ID: 10218 (Tea Sepolia)</p>
+                </div>
+
+                <div className="text-xs mt-8 opacity-70 text-center transition-all hover:opacity-100 hover:scale-105">
+                    Built by <a href="https://github.com/H15S" target="_blank" className="underline hover:text-pink-400">H15S</a>
+                </div>
+
+                <div className="text-xs mt-8 opacity-70 text-center transition-all hover:opacity-100 hover:scale-105">
+                    <a href="https://github.com/SpeedCandy" target="_blank" className="underline hover:text-red-400">Thank you for making it open source!</a>
+                </div>
             </div>
 
-            <div className="text-sm mt-4 space-y-1 text-center">
-                <p>💎 Total TX (onchain): {totalTx}</p>
-                <p>✅ Total Unique Users Today: {dailyCount}</p>
-                <p>✅ Total Unique Users All Time: {totalUser}</p>
-                <p>Contract: <a href={`https://sepolia.tea.xyz/address/${contractAddress}`} target="_blank" className="underline text-pink-400">{contractAddress}</a></p>
-                <p>Chain ID: 10218 (Tea Sepolia)</p>
+            <div className="w-full max-w-2xl mt-8">
+                <h2 className="text-lg font-semibold mb-2">Transaction Status</h2>
+                <div className="overflow-x-auto">
+                    <table className="w-full text-sm text-left text-gray-300">
+                        <thead className="text-xs uppercase bg-gray-900">
+                            <tr>
+                                <th className="px-4 py-2">Message</th>
+                                <th className="px-4 py-2">Time</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {statusMessages.map((status, index) => (
+                                <tr key={index} className="bg-gray-800 border-b border-gray-700">
+                                    <td className="px-4 py-2">{status.message}</td>
+                                    <td className="px-4 py-2">{status.timestamp}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
             </div>
-
-            <div className="text-xs mt-8 opacity-70 text-center transition-all hover:opacity-100 hover:scale-105">
-                Built by <a href="https://github.com/H15S" target="_blank" className="underline hover:text-pink-400">H15S</a>
-            </div>
-
-            <div className="text-xs mt-8 opacity-70 text-center transition-all hover:opacity-100 hover:scale-105">
-                <a href="https://github.com/SpeedCandy" target="_blank" className="underline hover:text-red-400">Thank you for making it open source!</a>
-            </div>
-
-            <div style={{ whiteSpace: 'pre-wrap' }}>{status}</div>
 
             <style jsx>{`
                 @keyframes tremble {
