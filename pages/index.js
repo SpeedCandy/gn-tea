@@ -2,11 +2,12 @@ import { useEffect, useState } from 'react';
 import { ethers } from 'ethers';
 
 export default function Home() {
-    const [statusMessages, setStatusMessages] = useState([]); // Array to store status messages with timestamps
+    const [statusMessages, setStatusMessages] = useState([]);
     const [dailyCount, setDailyCount] = useState(0);
     const [totalUser, setTotalUser] = useState(0);
     const [totalTx, setTotalTx] = useState(0);
     const [hoverColor, setHoverColor] = useState('pink');
+    const [leaderboard, setLeaderboard] = useState([]);
 
     const rpcList = [
         "https://tea-sepolia.g.alchemy.com/v2/x9kAVF2fxH9CG2gxfMn5zCbhC_-SoAsD",
@@ -46,6 +47,7 @@ export default function Home() {
             const userSet = new Set();
             const dailySet = new Set();
             const today = new Date().toDateString();
+            const userCountMap = new Map();
 
             logs.forEach(log => {
                 const user = log.args.user.toLowerCase();
@@ -54,11 +56,18 @@ export default function Home() {
                 if (time === today) {
                     dailySet.add(user);
                 }
+                userCountMap.set(user, (userCountMap.get(user) || 0) + 1);
             });
+
+            const sortedLeaderboard = Array.from(userCountMap.entries())
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 10)
+                .map(([user, count], index) => ({ rank: index + 1, user, count }));
 
             setTotalUser(userSet.size);
             setDailyCount(dailySet.size);
             setTotalTx(logs.length);
+            setLeaderboard(sortedLeaderboard);
         }
 
         fetchEvents();
@@ -66,12 +75,13 @@ export default function Home() {
         return () => clearInterval(interval);
     }, []);
 
-    async function sendSingleGN() {
+    const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+    async function sendSingleGN(signer, nonce) {
         if (!window.ethereum) throw new Error('Wallet not found');
         const provider = new ethers.BrowserProvider(window.ethereum);
-        const signer = await provider.getSigner();
         const contract = new ethers.Contract(contractAddress, abi, signer);
-        const tx = await contract.gn();
+        const tx = await contract.gn({ nonce: nonce, gasLimit: 60000 }); // Explicit gas limit
         return tx;
     }
 
@@ -79,9 +89,24 @@ export default function Home() {
         setStatusMessages(prev => [...prev, { message, timestamp: new Date().toLocaleTimeString() }]);
     };
 
+    async function retryOperation(operation, maxRetries = 3) {
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                return await operation();
+            } catch (err) {
+                if (attempt === maxRetries) throw err;
+                addStatusMessage(`Retrying (${attempt}/${maxRetries}) due to: ${err.message}`);
+                await delay(1000 * attempt); // Exponential backoff
+            }
+        }
+    }
+
     async function sendGN() {
         try {
-            const tx = await sendSingleGN();
+            const provider = new ethers.BrowserProvider(window.ethereum);
+            const signer = await provider.getSigner();
+            const nonce = await provider.getTransactionCount(await signer.getAddress(), 'latest');
+            const tx = await retryOperation(() => sendSingleGN(signer, nonce));
             addStatusMessage(`✅ TX Sent! Hash: ${tx.hash}`);
             try {
                 await tx.wait();
@@ -96,32 +121,30 @@ export default function Home() {
 
     async function sendTurboGN() {
         addStatusMessage('Starting to send 20 gn transactions...');
-        const txPromises = [];
-        for (let i = 0; i < 20; i++) {
-            const txPromise = sendSingleGN()
-                .then(tx => {
-                    addStatusMessage(`Sent transaction ${i + 1}/20: ${tx.hash}`);
-                    return tx;
-                })
-                .catch(err => {
-                    addStatusMessage(`Error sending transaction ${i + 1}: ${err.message}`);
-                    throw err;
-                });
-            txPromises.push(txPromise);
-        }
         try {
-            const txResponses = await Promise.all(txPromises);
-            addStatusMessage('All transactions sent. Waiting for confirmations...');
-            const receiptPromises = txResponses.map(tx =>
-                tx.wait().then(receipt => {
-                    addStatusMessage(`Transaction confirmed: ${tx.hash}`);
-                    return receipt;
-                })
-            );
-            await Promise.all(receiptPromises);
-            addStatusMessage('All 20 transactions confirmed!');
+            const provider = new ethers.BrowserProvider(window.ethereum);
+            const signer = await provider.getSigner();
+            let nonce = await provider.getTransactionCount(await signer.getAddress(), 'latest');
+
+            for (let i = 0; i < 20; i++) {
+                try {
+                    const tx = await retryOperation(() => sendSingleGN(signer, nonce));
+                    addStatusMessage(`Sent transaction ${i + 1}/20: ${tx.hash}`);
+                    nonce++; // Increment nonce manually
+                    try {
+                        await tx.wait();
+                        addStatusMessage(`Transaction ${i + 1}/20 confirmed: ${tx.hash}`);
+                    } catch (waitErr) {
+                        addStatusMessage(`⚠️ Transaction ${i + 1}/20 sent but receipt failed: ${tx.hash}`);
+                    }
+                    await delay(500); // Throttle requests
+                } catch (err) {
+                    addStatusMessage(`❌ Error sending transaction ${i + 1}: ${err.message}`);
+                }
+            }
+            addStatusMessage('All 20 transactions processed!');
         } catch (err) {
-            // Errors are handled within each promise
+            addStatusMessage(`❌ Turbo Error: ${err.message}`);
         }
     }
 
@@ -160,7 +183,7 @@ export default function Home() {
                         style={{ backgroundColor: colorMap[hoverColor] }}
                         className="text-white font-bold py-2 px-6 rounded-full transition-all duration-200 transform hover:scale-105 hover:animate-tremble"
                     >
-                        turbo gn  
+                        turbo
                     </button>
                 </div>
 
@@ -181,25 +204,59 @@ export default function Home() {
                 </div>
             </div>
 
-            <div className="w-full max-w-2xl mt-8">
-                <h2 className="text-lg font-semibold mb-2">Transaction Status</h2>
-                <div className="overflow-x-auto">
-                    <table className="w-full text-sm text-left text-gray-300">
-                        <thead className="text-xs uppercase bg-gray-900">
-                            <tr>
-                                <th className="px-4 py-2">Message</th>
-                                <th className="px-4 py-2">Time</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {statusMessages.map((status, index) => (
-                                <tr key={index} className="bg-gray-800 border-b border-gray-700">
-                                    <td className="px-4 py-2">{status.message}</td>
-                                    <td className="px-4 py-2">{status.timestamp}</td>
+            <div className="w-full max-w-2xl mt-8 space-y-8">
+                <div>
+                    <h2 className="text-lg font-semibold mb-2">Transaction Status</h2>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-sm text-left text-gray-300">
+                            <thead className="text-xs uppercase bg-gray-900">
+                                <tr>
+                                    <th className="px-4 py-2">Message</th>
+                                    <th className="px-4 py-2">Time</th>
                                 </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody>
+                                {statusMessages.map((status, index) => (
+                                    <tr key={index} className="bg-gray-800 border-b border-gray-700">
+                                        <td className="px-4 py-2">{status.message}</td>
+                                        <td className="px-4 py-2">{status.timestamp}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div>
+                    <h2 className="text-lg font-semibold mb-2">Leaderboard - Top GN Users</h2>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-sm text-left text-gray-300">
+                            <thead className="text-xs uppercase bg-gray-900">
+                                <tr>
+                                    <th className="px-4 py-2">Rank</th>
+                                    <th className="px-4 py-2">User</th>
+                                    <th className="px-4 py-2">GN Count</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {leaderboard.map((entry) => (
+                                    <tr key={entry.user} className="bg-gray-800 border-b border-gray-700">
+                                        <td className="px-4 py-2">{entry.rank}</td>
+                                        <td className="px-4 py-2">
+                                            <a
+                                                href={`https://sepolia.tea.xyz/address/${entry.user}`}
+                                                target="_blank"
+                                                className="underline text-pink-400"
+                                            >
+                                                {entry.user.slice(0, 6)}...{entry.user.slice(-4)}
+                                            </a>
+                                        </td>
+                                        <td className="px-4 py-2">{entry.count}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
 
