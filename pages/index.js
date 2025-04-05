@@ -78,21 +78,23 @@ export default function Home() {
     const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
     async function sendSingleGN(signer, nonce, provider) {
-        if (!window.ethereum) throw new Error('Wallet not found');
+        if (!window.ethereum) throw new Error('Wallet not detected. Please connect a wallet like MetaMask.');
+        const signerAddress = await signer.getAddress();
+        if (!signerAddress) throw new Error('Signer address not available. Ensure wallet is connected and unlocked.');
+        
+        console.log(`Preparing transaction with signer: ${signerAddress}, nonce: ${nonce}`);
         const contract = new ethers.Contract(contractAddress, abi, signer);
         const feeData = await provider.getFeeData();
-        
-        // Handle both legacy and EIP-1559 gas pricing
+        console.log('FeeData:', feeData);
+
         const txOptions = {
             nonce: nonce,
             gasLimit: 60000
         };
 
         if (feeData.gasPrice) {
-            // Legacy gas pricing
-            txOptions.gasPrice = ethers.BigNumber.from(feeData.gasPrice).mul(11).div(10); // 10% buffer
+            txOptions.gasPrice = ethers.BigNumber.from(feeData.gasPrice).mul(11).div(10);
         } else if (feeData.maxFeePerGas && feeData.maxPriorityFeePerGas) {
-            // EIP-1559 pricing
             txOptions.maxFeePerGas = ethers.BigNumber.from(feeData.maxFeePerGas).mul(11).div(10);
             txOptions.maxPriorityFeePerGas = ethers.BigNumber.from(feeData.maxPriorityFeePerGas);
         } else {
@@ -100,6 +102,7 @@ export default function Home() {
         }
 
         const tx = await contract.gn(txOptions);
+        console.log('Transaction sent:', tx);
         return tx;
     }
 
@@ -121,6 +124,7 @@ export default function Home() {
 
     async function sendGN() {
         try {
+            if (!window.ethereum) throw new Error('Wallet not detected. Please connect a wallet.');
             const provider = new ethers.BrowserProvider(window.ethereum);
             const signer = await provider.getSigner();
             const nonce = await provider.getTransactionCount(await signer.getAddress(), 'pending');
@@ -140,6 +144,7 @@ export default function Home() {
     async function sendTurboGN() {
         addStatusMessage('Starting to send 20 gn transactions...');
         try {
+            if (!window.ethereum) throw new Error('Wallet not detected. Please connect a wallet.');
             const provider = new ethers.BrowserProvider(window.ethereum);
             const signer = await provider.getSigner();
             let nonce = await provider.getTransactionCount(await signer.getAddress(), 'pending');
@@ -286,7 +291,7 @@ export default function Home() {
                     40% { transform: translate(2px, -2px) rotate(2deg); }
                     60% { transform: translate(-2px, 0) rotate(-1deg); }
                     80% { transform: translate(2px, 0) rotate(1deg); }
-                    100% { transform: translate(0, 0) rotate(0deg); }
+                    100% { trasnsform: translate(0, 0) rotate(0deg); }
                 }
                 .animate-tremble {
                     animation: tremble 0.3s infinite;
