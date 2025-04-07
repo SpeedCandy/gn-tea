@@ -143,6 +143,13 @@ export default function Home() {
         setHoverColor(randomColor);
     };
 
+    const handleButtonClick = (event) => {
+        event.target.classList.add('clicked');
+        setTimeout(() => {
+            event.target.classList.remove('clicked');
+        }, 200);
+    };
+
     const colorMap = {
         pink: '#EC4899',
         purple: '#A855F7',
@@ -158,7 +165,7 @@ export default function Home() {
                 <h1 className="text-4xl font-bold">gn tea sepolia</h1>
                 <div className="flex space-x-4">
                     <button
-                        onClick={sendGN}
+                        onClick={(e) => { handleButtonClick(e); sendGN(); }}
                         onMouseEnter={handleMouseEnter}
                         style={{ backgroundColor: colorMap[hoverColor] }}
                         className="text-white font-bold py-2 px-6 rounded-full transition-all duration-200 transform hover:scale-105 hover:animate-tremble"
@@ -166,7 +173,7 @@ export default function Home() {
                         gn
                     </button>
                     <button
-                        onClick={sendTurboGN}
+                        onClick={(e) => { handleButtonClick(e); sendTurboGN(); }}
                         onMouseEnter={handleMouseEnter}
                         style={{ backgroundColor: colorMap[hoverColor] }}
                         className="text-white font-bold py-2 px-6 rounded-full transition-all duration-200 transform hover:scale-105 hover:animate-tremble"
@@ -252,13 +259,17 @@ export default function Home() {
                 @keyframes tremble {
                     0% { transform: translate(0, 0) rotate(0deg); }
                     20% { transform: translate(-2px, 2px) rotate(-2deg); }
-                    40bundan sonra ne yapmam gerekiyor? { transform: translate(2px, -2px) rotate(2deg); }
+                    40% { transform: translate(2px, -2px) rotate(2deg); }
                     60% { transform: translate(-2px, 0) rotate(-1deg); }
                     80% { transform: translate(2px, 0) rotate(1deg); }
                     100% { transform: translate(0, 0) rotate(0deg); }
                 }
                 .animate-tremble {
                     animation: tremble 0.3s infinite;
+                }
+                .clicked {
+                    transform: scale(0.9);
+                    transition: transform 0.1s;
                 }
             `}</style>
         </div>
