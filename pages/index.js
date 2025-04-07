@@ -11,7 +11,7 @@ export default function Home() {
 
     const rpcList = [
         "https://tea-sepolia.g.alchemy.com/v2/x9kAVF2fxH9CG2gxfMn5zCbhC_-SoAsD",
-        "https://tea-sepolia.g.alchemy.com/v2/hMVs30GZQ5d_sFWTYGx8ZViugptqpksK"
+        
     ];
 
     const contractAddress = "0xEdF7dE119Fe7c0d2c0252a2e47E0c7FBc3FE1D4a";
@@ -22,21 +22,14 @@ export default function Home() {
     ];
 
     async function getWorkingProvider() {
-        const providers = rpcList.map(rpc => new ethers.JsonRpcProvider(rpc));
-        const results = await Promise.allSettled(
-            providers.map(async provider => {
-                await provider.getBlockNumber();
-                return provider;
-            })
-        );
-
-        const successfulProvider = results.find(result => result.status === 'fulfilled');
-        if (successfulProvider) {
-            console.log(`✅ Connected to: ${successfulProvider.value.connection.url}`);
-            return successfulProvider.value;
-        } else {
-            console.error("❌ All RPC failed:", results);
-            throw new Error("❌ All RPC failed");
+        const provider = new ethers.JsonRpcProvider("https://tea-sepolia.g.alchemy.com/v2/x9kAVF2fxH9CG2gxfMn5zCbhC_-SoAsD");
+        try {
+            await provider.getBlockNumber();
+            console.log(`✅ Connected to: ${provider.connection.url}`);
+            return provider;
+        } catch (error) {
+            console.error("❌ Failed to connect to the RPC:", error);
+            throw new Error("❌ RPC connection failed");
         }
     }
 
