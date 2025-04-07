@@ -7,7 +7,7 @@ export default function Home() {
     const [totalUser, setTotalUser] = useState(0);
     const [totalTx, setTotalTx] = useState(0);
     const [hoverColor, setHoverColor] = useState('pink');
-    const [leaderboard, setLeaderboard] = useState([]); // New state for leaderboard
+    const [leaderboard, setLeaderboard] = useState([]);
 
     const rpcList = [
         "https://tea-sepolia.g.alchemy.com/public"
@@ -21,58 +21,69 @@ export default function Home() {
     ];
 
     async function getWorkingProvider() {
-        for (const rpc of rpcList) {
-            try {
-                const provider = new ethers.JsonRpcProvider(rpc);
-                await provider.getBlockNumber();
-                console.log(`✅ Connected to: ${rpc}`);
-                return provider;
-            } catch (err) {
-                console.log(`❌ RPC Failed: ${rpc}`);
-            }
+        const providers = rpcList.map(rpc => new ethers.JsonRpcProvider(rpc));
+        try {
+            const provider = await Promise.any(
+                providers.map(async provider => {
+                    await provider.getBlockNumber();
+                    console.log(`✅ Connected to: ${provider.connection.url}`);
+                    return provider;
+                })
+            );
+            return provider;
+        } catch {
+            throw new Error("❌ All RPC failed");
         }
-        throw new Error("❌ All RPC failed");
+    }
+
+    function processLogs(logs) {
+        const userSet = new Set();
+        const dailySet = new Set();
+        const userCountMap = new Map();
+        const today = new Date().toDateString();
+
+        logs.forEach(log => {
+            const user = log.args.user.toLowerCase();
+            const time = new Date(Number(log.args.timestamp) * 1000).toDateString();
+            userSet.add(user);
+            if (time === today) {
+                dailySet.add(user);
+            }
+            userCountMap.set(user, (userCountMap.get(user) || 0) + 1);
+        });
+
+        return { userSet, dailySet, userCountMap };
     }
 
     useEffect(() => {
-        async function fetchEvents() {
+        let interval;
+        async function startFetching() {
             const provider = await getWorkingProvider();
             const contract = new ethers.Contract(contractAddress, abi, provider);
 
-            const latestBlock = await provider.getBlockNumber();
-            const fromBlock = latestBlock - 50000 > 0 ? latestBlock - 50000 : 0;
+            async function fetchEvents() {
+                const latestBlock = await provider.getBlockNumber();
+                const fromBlock = Math.max(latestBlock - 50000, 0);
 
-            const logs = await contract.queryFilter("GNed", fromBlock, latestBlock);
-            const userSet = new Set();
-            const dailySet = new Set();
-            const today = new Date().toDateString();
-            const userCountMap = new Map(); // Map to count GNed events per user
+                const logs = await contract.queryFilter("GNed", fromBlock, latestBlock);
+                const { userSet, dailySet, userCountMap } = processLogs(logs);
 
-            logs.forEach(log => {
-                const user = log.args.user.toLowerCase();
-                const time = new Date(Number(log.args.timestamp) * 1000).toDateString();
-                userSet.add(user);
-                if (time === today) {
-                    dailySet.add(user);
-                }
-                // Increment count for this user in the map
-                userCountMap.set(user, (userCountMap.get(user) || 0) + 1);
-            });
+                const sortedLeaderboard = Array.from(userCountMap.entries())
+                    .sort((a, b) => b[1] - a[1])
+                    .slice(0, 10)
+                    .map(([user, count], index) => ({ rank: index + 1, user, count }));
 
-            // Convert map to array, sort by count, and take top 10
-            const sortedLeaderboard = Array.from(userCountMap.entries())
-                .sort((a, b) => b[1] - a[1]) // Sort descending by count
-                .slice(0, 10) // Top 10 users
-                .map(([user, count], index) => ({ rank: index + 1, user, count }));
+                setTotalUser(userSet.size);
+                setDailyCount(dailySet.size);
+                setTotalTx(logs.length);
+                setLeaderboard(sortedLeaderboard);
+            }
 
-            setTotalUser(userSet.size);
-            setDailyCount(dailySet.size);
-            setTotalTx(logs.length);
-            setLeaderboard(sortedLeaderboard);
+            await fetchEvents();
+            interval = setInterval(fetchEvents, 10000);
         }
 
-        fetchEvents();
-        const interval = setInterval(fetchEvents, 10000);
+        startFetching();
         return () => clearInterval(interval);
     }, []);
 
@@ -106,33 +117,31 @@ export default function Home() {
 
     async function sendTurboGN() {
         addStatusMessage('Starting to send 20 gn transactions...');
-        const txPromises = [];
-        for (let i = 0; i < 20; i++) {
-            const txPromise = sendSingleGN()
+        const txPromises = Array.from({ length: 20 }, (_, i) =>
+            sendSingleGN()
                 .then(tx => {
                     addStatusMessage(`Sent transaction ${i + 1}/20: ${tx.hash}`);
                     return tx;
                 })
                 .catch(err => {
                     addStatusMessage(`Error sending transaction ${i + 1}: ${err.message}`);
-                    throw err;
-                });
-            txPromises.push(txPromise);
-        }
-        try {
-            const txResponses = await Promise.all(txPromises);
-            addStatusMessage('All transactions sent. Waiting for confirmations...');
-            const receiptPromises = txResponses.map(tx =>
-                tx.wait().then(receipt => {
-                    addStatusMessage(`Transaction confirmed: ${tx.hash}`);
-                    return receipt;
+                    return null;
                 })
-            );
-            await Promise.all(receiptPromises);
-            addStatusMessage('All 20 transactions confirmed!');
-        } catch (err) {
-            // Errors are handled within each promise
-        }
+        );
+
+        const txResponses = await Promise.allSettled(txPromises);
+        const successfulTxs = txResponses.filter(result => result.status === 'fulfilled').map(result => result.value);
+
+        addStatusMessage('All transactions sent. Waiting for confirmations...');
+        const receiptPromises = successfulTxs.map(tx =>
+            tx.wait().then(receipt => {
+                addStatusMessage(`Transaction confirmed: ${tx.hash}`);
+                return receipt;
+            })
+        );
+
+        await Promise.allSettled(receiptPromises);
+        addStatusMessage('All transactions processed!');
     }
 
     const colors = ['pink', 'purple', 'blue', 'green', 'yellow', 'red'];
@@ -251,7 +260,7 @@ export default function Home() {
                 @keyframes tremble {
                     0% { transform: translate(0, 0) rotate(0deg); }
                     20% { transform: translate(-2px, 2px) rotate(-2deg); }
-                    40bundan sonra ne yapmam gerekiyor? { transform: translate(2px, -2px) rotate(2deg); }
+                    40% { transform: translate(2px, -2px) rotate(2deg); }
                     60% { transform: translate(-2px, 0) rotate(-1deg); }
                     80% { transform: translate(2px, 0) rotate(1deg); }
                     100% { transform: translate(0, 0) rotate(0deg); }
