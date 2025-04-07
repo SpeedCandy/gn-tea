@@ -10,7 +10,9 @@ export default function Home() {
     const [leaderboard, setLeaderboard] = useState([]);
 
     const rpcList = [
-        "https://tea-sepolia.g.alchemy.com/public"
+        "https://tea-sepolia.g.alchemy.com/public",
+        "https://tea-sepolia.g.alchemy.com/v2/x9kAVF2fxH9CG2gxfMn5zCbhC_-SoAsD",
+        "https://tea-sepolia.g.alchemy.com/v2/hMVs30GZQ5d_sFWTYGx8ZViugptqpksK"
     ];
 
     const contractAddress = "0xEdF7dE119Fe7c0d2c0252a2e47E0c7FBc3FE1D4a";
