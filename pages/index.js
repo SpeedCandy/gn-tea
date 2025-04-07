@@ -23,16 +23,19 @@ export default function Home() {
 
     async function getWorkingProvider() {
         const providers = rpcList.map(rpc => new ethers.JsonRpcProvider(rpc));
-        try {
-            const provider = await Promise.any(
-                providers.map(async provider => {
-                    await provider.getBlockNumber();
-                    console.log(`✅ Connected to: ${provider.connection.url}`);
-                    return provider;
-                })
-            );
-            return provider;
-        } catch {
+        const results = await Promise.allSettled(
+            providers.map(async provider => {
+                await provider.getBlockNumber();
+                return provider;
+            })
+        );
+
+        const successfulProvider = results.find(result => result.status === 'fulfilled');
+        if (successfulProvider) {
+            console.log(`✅ Connected to: ${successfulProvider.value.connection.url}`);
+            return successfulProvider.value;
+        } else {
+            console.error("❌ All RPC failed:", results);
             throw new Error("❌ All RPC failed");
         }
     }
