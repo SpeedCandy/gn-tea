@@ -9,6 +9,7 @@ const rpcList = [
 const contractAddress = "0xEdF7dE119Fe7c0d2c0252a2e47E0c7FBc3FE1D4a";
 const abi = [
     "function gn() external",
+    "function turboGN() external",
     "event GNed(address indexed user, uint256 timestamp)"
 ];
 
@@ -30,6 +31,7 @@ export default function Home() {
     const [dailyCount, setDailyCount] = useState(0);
     const [totalUser, setTotalUser] = useState(0);
     const [totalTx, setTotalTx] = useState(0);
+    const [hoverColor, setHoverColor] = useState('pink');
 
     useEffect(() => {
         async function fetchEvents() {
@@ -75,10 +77,27 @@ export default function Home() {
             const contract = new ethers.Contract(contractAddress, abi, signer);
 
             const tx = await contract.gn();
-            setStatusMessages(prev => [...prev, `TX Sent: ${tx.hash}`]);
+            setStatusMessages(prev => [...prev, `GN TX Sent: ${tx.hash}`]);
 
             await tx.wait();
-            setStatusMessages(prev => [...prev, `TX Confirmed: ${tx.hash}`]);
+            setStatusMessages(prev => [...prev, `GN TX Confirmed: ${tx.hash}`]);
+        } catch (error) {
+            setStatusMessages(prev => [...prev, `Error: ${error.message}`]);
+        }
+    }
+
+    async function sendTurboGN() {
+        try {
+            if (!window.ethereum) throw new Error('Wallet not found');
+            const provider = new ethers.BrowserProvider(window.ethereum);
+            const signer = await provider.getSigner();
+            const contract = new ethers.Contract(contractAddress, abi, signer);
+
+            const tx = await contract.turboGN();
+            setStatusMessages(prev => [...prev, `Turbo GN TX Sent: ${tx.hash}`]);
+
+            await tx.wait();
+            setStatusMessages(prev => [...prev, `Turbo GN TX Confirmed: ${tx.hash}`]);
         } catch (error) {
             setStatusMessages(prev => [...prev, `Error: ${error.message}`]);
         }
@@ -87,13 +106,30 @@ export default function Home() {
     return (
         <div className="container">
             <h1>GN Tea Sepolia</h1>
-            <button onClick={sendGN}>Send GN</button>
-            <div>
+            <div className="buttons">
+                <button
+                    onClick={sendGN}
+                    onMouseEnter={() => setHoverColor('blue')}
+                    style={{ backgroundColor: hoverColor }}
+                    className="text-white font-bold py-2 px-6 rounded-full transition-all duration-200 transform hover:scale-105"
+                >
+                    GN
+                </button>
+                <button
+                    onClick={sendTurboGN}
+                    onMouseEnter={() => setHoverColor('green')}
+                    style={{ backgroundColor: hoverColor }}
+                    className="text-white font-bold py-2 px-6 rounded-full transition-all duration-200 transform hover:scale-105"
+                >
+                    Turbo GN
+                </button>
+            </div>
+            <div className="stats">
                 <p>Total Transactions: {totalTx}</p>
                 <p>Daily Users: {dailyCount}</p>
                 <p>Total Users: {totalUser}</p>
             </div>
-            <div>
+            <div className="status-messages">
                 <h2>Status Messages</h2>
                 <ul>
                     {statusMessages.map((msg, index) => (
