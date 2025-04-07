@@ -7,13 +7,11 @@ export default function Home() {
     const [totalUser, setTotalUser] = useState(0);
     const [totalTx, setTotalTx] = useState(0);
     const [hoverColor, setHoverColor] = useState('pink');
-    const [leaderboard, setLeaderboard] = useState([]);
+    const [leaderboard, setLeaderboard] = useState([]); // New state for leaderboard
 
     const rpcList = [
         "https://tea-sepolia.g.alchemy.com/v2/x9kAVF2fxH9CG2gxfMn5zCbhC_-SoAsD",
-        "https://tea-sepolia.g.alchemy.com/v2/hMVs30GZQ5d_sFWTYGx8ZViugptqpksK",
-        "https://tea-sepolia.g.alchemy.com/v2/x5U98OJ_u8Ee1ISv0nQT_fcDP6_SqbTo",
-        "https://tea-sepolia.g.alchemy.com/v2/J2o_A0I3_4Z55riic1zIZhfb7zyyahnk"
+        "https://tea-sepolia.g.alchemy.com/v2/hMVs30GZQ5d_sFWTYGx8ZViugptqpksK"
     ];
 
     const contractAddress = "0xEdF7dE119Fe7c0d2c0252a2e47E0c7FBc3FE1D4a";
@@ -49,7 +47,7 @@ export default function Home() {
             const userSet = new Set();
             const dailySet = new Set();
             const today = new Date().toDateString();
-            const userCountMap = new Map();
+            const userCountMap = new Map(); // Map to count GNed events per user
 
             logs.forEach(log => {
                 const user = log.args.user.toLowerCase();
@@ -58,12 +56,14 @@ export default function Home() {
                 if (time === today) {
                     dailySet.add(user);
                 }
+                // Increment count for this user in the map
                 userCountMap.set(user, (userCountMap.get(user) || 0) + 1);
             });
 
+            // Convert map to array, sort by count, and take top 10
             const sortedLeaderboard = Array.from(userCountMap.entries())
-                .sort((a, b) => b[1] - a[1])
-                .slice(0, 10)
+                .sort((a, b) => b[1] - a[1]) // Sort descending by count
+                .slice(0, 10) // Top 10 users
                 .map(([user, count], index) => ({ rank: index + 1, user, count }));
 
             setTotalUser(userSet.size);
@@ -77,34 +77,12 @@ export default function Home() {
         return () => clearInterval(interval);
     }, []);
 
-    const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-
-    async function sendSingleGN(signer, nonce, provider) {
-        if (!window.ethereum) throw new Error('Wallet not detected. Please connect a wallet like MetaMask.');
-        const signerAddress = await signer.getAddress();
-        if (!signerAddress) throw new Error('Signer address not available. Ensure wallet is connected and unlocked.');
-        
-        console.log(`Preparing transaction with signer: ${signerAddress}, nonce: ${nonce}`);
+    async function sendSingleGN() {
+        if (!window.ethereum) throw new Error('Wallet not found');
+        const provider = new ethers.BrowserProvider(window.ethereum);
+        const signer = await provider.getSigner();
         const contract = new ethers.Contract(contractAddress, abi, signer);
-        const feeData = await provider.getFeeData();
-        console.log('FeeData:', feeData);
-
-        const txOptions = {
-            nonce: nonce,
-            gasLimit: 60000
-        };
-
-        if (feeData.gasPrice) {
-            txOptions.gasPrice = ethers.BigNumber.from(feeData.gasPrice).mul(11).div(10);
-        } else if (feeData.maxFeePerGas && feeData.maxPriorityFeePerGas) {
-            txOptions.maxFeePerGas = ethers.BigNumber.from(feeData.maxFeePerGas).mul(11).div(10);
-            txOptions.maxPriorityFeePerGas = ethers.BigNumber.from(feeData.maxPriorityFeePerGas);
-        } else {
-            throw new Error('Unable to determine gas pricing');
-        }
-
-        const tx = await contract.gn(txOptions);
-        console.log('Transaction sent:', tx);
+        const tx = await contract.gn();
         return tx;
     }
 
@@ -112,25 +90,9 @@ export default function Home() {
         setStatusMessages(prev => [...prev, { message, timestamp: new Date().toLocaleTimeString() }]);
     };
 
-    async function retryOperation(operation, maxRetries = 3) {
-        for (let attempt = 1; attempt <= maxRetries; attempt++) {
-            try {
-                return await operation();
-            } catch (err) {
-                if (attempt === maxRetries) throw err;
-                addStatusMessage(`Retrying (${attempt}/${maxRetries}) due to: ${err.message}`);
-                await delay(1000 * attempt);
-            }
-        }
-    }
-
     async function sendGN() {
         try {
-            if (!window.ethereum) throw new Error('Wallet not detected. Please connect a wallet.');
-            const provider = new ethers.BrowserProvider(window.ethereum);
-            const signer = await provider.getSigner();
-            const nonce = await provider.getTransactionCount(await signer.getAddress(), 'pending');
-            const tx = await retryOperation(() => sendSingleGN(signer, nonce, provider));
+            const tx = await sendSingleGN();
             addStatusMessage(`✅ TX Sent! Hash: ${tx.hash}`);
             try {
                 await tx.wait();
@@ -145,32 +107,32 @@ export default function Home() {
 
     async function sendTurboGN() {
         addStatusMessage('Starting to send 20 gn transactions...');
-        try {
-            if (!window.ethereum) throw new Error('Wallet not detected. Please connect a wallet.');
-            const provider = new ethers.BrowserProvider(window.ethereum);
-            const signer = await provider.getSigner();
-            let nonce = await provider.getTransactionCount(await signer.getAddress(), 'pending');
-
-            for (let i = 0; i < 20; i++) {
-                try {
-                    const tx = await retryOperation(() => sendSingleGN(signer, nonce, provider));
+        const txPromises = [];
+        for (let i = 0; i < 20; i++) {
+            const txPromise = sendSingleGN()
+                .then(tx => {
                     addStatusMessage(`Sent transaction ${i + 1}/20: ${tx.hash}`);
-                    nonce++;
-                    try {
-                        await tx.wait();
-                        addStatusMessage(`Transaction ${i + 1}/20 confirmed: ${tx.hash}`);
-                    } catch (waitErr) {
-                        addStatusMessage(`⚠️ Transaction ${i + 1}/20 sent but receipt failed: ${tx.hash}`);
-                    }
-                    await delay(1000);
-                } catch (err) {
-                    addStatusMessage(`❌ Error sending transaction ${i + 1}: ${err.message}`);
-                    nonce = await provider.getTransactionCount(await signer.getAddress(), 'pending');
-                }
-            }
-            addStatusMessage('All 20 transactions processed!');
+                    return tx;
+                })
+                .catch(err => {
+                    addStatusMessage(`Error sending transaction ${i + 1}: ${err.message}`);
+                    throw err;
+                });
+            txPromises.push(txPromise);
+        }
+        try {
+            const txResponses = await Promise.all(txPromises);
+            addStatusMessage('All transactions sent. Waiting for confirmations...');
+            const receiptPromises = txResponses.map(tx =>
+                tx.wait().then(receipt => {
+                    addStatusMessage(`Transaction confirmed: ${tx.hash}`);
+                    return receipt;
+                })
+            );
+            await Promise.all(receiptPromises);
+            addStatusMessage('All 20 transactions confirmed!');
         } catch (err) {
-            addStatusMessage(`❌ Turbo Error: ${err.message}`);
+            // Errors are handled within each promise
         }
     }
 
@@ -209,7 +171,7 @@ export default function Home() {
                         style={{ backgroundColor: colorMap[hoverColor] }}
                         className="text-white font-bold py-2 px-6 rounded-full transition-all duration-200 transform hover:scale-105 hover:animate-tremble"
                     >
-                        turbo
+                        turbo gn
                     </button>
                 </div>
 
@@ -290,10 +252,10 @@ export default function Home() {
                 @keyframes tremble {
                     0% { transform: translate(0, 0) rotate(0deg); }
                     20% { transform: translate(-2px, 2px) rotate(-2deg); }
-                    40% { transform: translate(2px, -2px) rotate(2deg); }
+                    40bundan sonra ne yapmam gerekiyor? { transform: translate(2px, -2px) rotate(2deg); }
                     60% { transform: translate(-2px, 0) rotate(-1deg); }
                     80% { transform: translate(2px, 0) rotate(1deg); }
-                    100% { trasnsform: translate(0, 0) rotate(0deg); }
+                    100% { transform: translate(0, 0) rotate(0deg); }
                 }
                 .animate-tremble {
                     animation: tremble 0.3s infinite;
