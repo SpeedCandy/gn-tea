@@ -7,11 +7,11 @@ export default function Home() {
     const [totalUser, setTotalUser] = useState(0);
     const [totalTx, setTotalTx] = useState(0);
     const [hoverColor, setHoverColor] = useState('pink');
-    const [leaderboard, setLeaderboard] = useState([]);
+    const [leaderboard, setLeaderboard] = useState([]); // New state for leaderboard
 
     const rpcList = [
         "https://tea-sepolia.g.alchemy.com/v2/x9kAVF2fxH9CG2gxfMn5zCbhC_-SoAsD",
-        
+        "https://tea-sepolia.g.alchemy.com/v2/hMVs30GZQ5d_sFWTYGx8ZViugptqpksK"
     ];
 
     const contractAddress = "0xEdF7dE119Fe7c0d2c0252a2e47E0c7FBc3FE1D4a";
@@ -22,65 +22,58 @@ export default function Home() {
     ];
 
     async function getWorkingProvider() {
-        const provider = new ethers.JsonRpcProvider("https://tea-sepolia.g.alchemy.com/v2/x9kAVF2fxH9CG2gxfMn5zCbhC_-SoAsD");
-        try {
-            await provider.getBlockNumber();
-            console.log(`✅ Connected to: ${provider.connection.url}`);
-            return provider;
-        } catch (error) {
-            console.error("❌ Failed to connect to the RPC:", error);
-            throw new Error("❌ RPC connection failed");
-        }
-    }
-
-    function processLogs(logs) {
-        const userSet = new Set();
-        const dailySet = new Set();
-        const userCountMap = new Map();
-        const today = new Date().toDateString();
-
-        logs.forEach(log => {
-            const user = log.args.user.toLowerCase();
-            const time = new Date(Number(log.args.timestamp) * 1000).toDateString();
-            userSet.add(user);
-            if (time === today) {
-                dailySet.add(user);
+        for (const rpc of rpcList) {
+            try {
+                const provider = new ethers.JsonRpcProvider(rpc);
+                await provider.getBlockNumber();
+                console.log(`✅ Connected to: ${rpc}`);
+                return provider;
+            } catch (err) {
+                console.log(`❌ RPC Failed: ${rpc}`);
             }
-            userCountMap.set(user, (userCountMap.get(user) || 0) + 1);
-        });
-
-        return { userSet, dailySet, userCountMap };
+        }
+        throw new Error("❌ All RPC failed");
     }
 
     useEffect(() => {
-        let interval;
-        async function startFetching() {
+        async function fetchEvents() {
             const provider = await getWorkingProvider();
             const contract = new ethers.Contract(contractAddress, abi, provider);
 
-            async function fetchEvents() {
-                const latestBlock = await provider.getBlockNumber();
-                const fromBlock = Math.max(latestBlock - 50000, 0);
+            const latestBlock = await provider.getBlockNumber();
+            const fromBlock = latestBlock - 50000 > 0 ? latestBlock - 50000 : 0;
 
-                const logs = await contract.queryFilter("GNed", fromBlock, latestBlock);
-                const { userSet, dailySet, userCountMap } = processLogs(logs);
+            const logs = await contract.queryFilter("GNed", fromBlock, latestBlock);
+            const userSet = new Set();
+            const dailySet = new Set();
+            const today = new Date().toDateString();
+            const userCountMap = new Map(); // Map to count GNed events per user
 
-                const sortedLeaderboard = Array.from(userCountMap.entries())
-                    .sort((a, b) => b[1] - a[1])
-                    .slice(0, 10)
-                    .map(([user, count], index) => ({ rank: index + 1, user, count }));
+            logs.forEach(log => {
+                const user = log.args.user.toLowerCase();
+                const time = new Date(Number(log.args.timestamp) * 1000).toDateString();
+                userSet.add(user);
+                if (time === today) {
+                    dailySet.add(user);
+                }
+                // Increment count for this user in the map
+                userCountMap.set(user, (userCountMap.get(user) || 0) + 1);
+            });
 
-                setTotalUser(userSet.size);
-                setDailyCount(dailySet.size);
-                setTotalTx(logs.length);
-                setLeaderboard(sortedLeaderboard);
-            }
+            // Convert map to array, sort by count, and take top 10
+            const sortedLeaderboard = Array.from(userCountMap.entries())
+                .sort((a, b) => b[1] - a[1]) // Sort descending by count
+                .slice(0, 10) // Top 10 users
+                .map(([user, count], index) => ({ rank: index + 1, user, count }));
 
-            await fetchEvents();
-            interval = setInterval(fetchEvents, 10000);
+            setTotalUser(userSet.size);
+            setDailyCount(dailySet.size);
+            setTotalTx(logs.length);
+            setLeaderboard(sortedLeaderboard);
         }
 
-        startFetching();
+        fetchEvents();
+        const interval = setInterval(fetchEvents, 10000);
         return () => clearInterval(interval);
     }, []);
 
@@ -114,31 +107,33 @@ export default function Home() {
 
     async function sendTurboGN() {
         addStatusMessage('Starting to send 20 gn transactions...');
-        const txPromises = Array.from({ length: 20 }, (_, i) =>
-            sendSingleGN()
+        const txPromises = [];
+        for (let i = 0; i < 20; i++) {
+            const txPromise = sendSingleGN()
                 .then(tx => {
                     addStatusMessage(`Sent transaction ${i + 1}/20: ${tx.hash}`);
                     return tx;
                 })
                 .catch(err => {
                     addStatusMessage(`Error sending transaction ${i + 1}: ${err.message}`);
-                    return null;
+                    throw err;
+                });
+            txPromises.push(txPromise);
+        }
+        try {
+            const txResponses = await Promise.all(txPromises);
+            addStatusMessage('All transactions sent. Waiting for confirmations...');
+            const receiptPromises = txResponses.map(tx =>
+                tx.wait().then(receipt => {
+                    addStatusMessage(`Transaction confirmed: ${tx.hash}`);
+                    return receipt;
                 })
-        );
-
-        const txResponses = await Promise.allSettled(txPromises);
-        const successfulTxs = txResponses.filter(result => result.status === 'fulfilled').map(result => result.value);
-
-        addStatusMessage('All transactions sent. Waiting for confirmations...');
-        const receiptPromises = successfulTxs.map(tx =>
-            tx.wait().then(receipt => {
-                addStatusMessage(`Transaction confirmed: ${tx.hash}`);
-                return receipt;
-            })
-        );
-
-        await Promise.allSettled(receiptPromises);
-        addStatusMessage('All transactions processed!');
+            );
+            await Promise.all(receiptPromises);
+            addStatusMessage('All 20 transactions confirmed!');
+        } catch (err) {
+            // Errors are handled within each promise
+        }
     }
 
     const colors = ['pink', 'purple', 'blue', 'green', 'yellow', 'red'];
@@ -257,7 +252,7 @@ export default function Home() {
                 @keyframes tremble {
                     0% { transform: translate(0, 0) rotate(0deg); }
                     20% { transform: translate(-2px, 2px) rotate(-2deg); }
-                    40% { transform: translate(2px, -2px) rotate(2deg); }
+                    40bundan sonra ne yapmam gerekiyor? { transform: translate(2px, -2px) rotate(2deg); }
                     60% { transform: translate(-2px, 0) rotate(-1deg); }
                     80% { transform: translate(2px, 0) rotate(1deg); }
                     100% { transform: translate(0, 0) rotate(0deg); }
