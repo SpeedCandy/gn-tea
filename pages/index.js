@@ -22,13 +22,22 @@ export default function Home() {
     ];
 
     async function getWorkingProvider() {
+        const maxRetries = 3;
+
         const providerPromises = rpcList.map(async (rpc) => {
-            const provider = new ethers.JsonRpcProvider(rpc);
-            try {
-                await provider.getBlockNumber();
-                return provider;
-            } catch {
-                return null;
+            let retries = 0;
+            while (retries < maxRetries) {
+                try {
+                    const provider = new ethers.JsonRpcProvider(rpc);
+                    await provider.getBlockNumber();
+                    return provider;
+                } catch (error) {
+                    retries++;
+                    console.warn(`RPC ${rpc} failed (attempt ${retries}/${maxRetries}):`, error.message);
+                    if (retries === maxRetries) {
+                        return null;
+                    }
+                }
             }
         });
 
@@ -36,7 +45,7 @@ export default function Home() {
         const workingProvider = providers.find((provider) => provider !== null);
 
         if (!workingProvider) {
-            throw new Error("All RPCs failed");
+            throw new Error("All RPCs failed after retries");
         }
 
         return workingProvider;
