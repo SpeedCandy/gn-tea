@@ -162,33 +162,22 @@ export default function Home() {
             const contract = new ethers.Contract(contractAddress, abi, wallet);
 
             addStatusMessage('Starting to send 20 GN transactions with private key...');
-            const txPromises = [];
 
             for (let i = 0; i < 20; i++) {
-                const txPromise = contract.gn()
-                    .then(tx => {
-                        addStatusMessage(`Sent transaction ${i + 1}/20: ${tx.hash}`);
-                        return tx;
-                    })
-                    .catch(err => {
-                        addStatusMessage(`Error sending transaction ${i + 1}: ${err.message}`);
-                        throw err;
-                    });
-                txPromises.push(txPromise);
+                try {
+                    const tx = await contract.gn();
+                    addStatusMessage(`Sent transaction ${i + 1}/20: ${tx.hash}`);
+                    await tx.wait();
+                    addStatusMessage(`Transaction confirmed: ${tx.hash}`);
+                } catch (err) {
+                    addStatusMessage(`Error sending transaction ${i + 1}: ${err.message}`);
+                }
+
+                // Add a 2-second delay between transactions
+                await new Promise(resolve => setTimeout(resolve, 2000));
             }
 
-            const txResponses = await Promise.all(txPromises);
-            addStatusMessage('All transactions sent. Waiting for confirmations...');
-
-            const receiptPromises = txResponses.map(tx =>
-                tx.wait().then(receipt => {
-                    addStatusMessage(`Transaction confirmed: ${tx.hash}`);
-                    return receipt;
-                })
-            );
-
-            await Promise.all(receiptPromises);
-            addStatusMessage('All 20 transactions confirmed!');
+            addStatusMessage('All transactions processed!');
         } catch (err) {
             addStatusMessage(`❌ Error: ${err.message}`);
         }
