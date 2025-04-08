@@ -22,17 +22,24 @@ export default function Home() {
     ];
 
     async function getWorkingProvider() {
-        for (const rpc of rpcList) {
+        const providerPromises = rpcList.map(async (rpc) => {
+            const provider = new ethers.JsonRpcProvider(rpc);
             try {
-                const provider = new ethers.JsonRpcProvider(rpc);
                 await provider.getBlockNumber();
-                console.log(`✅ Connected to: ${rpc}`);
                 return provider;
-            } catch (err) {
-                console.log(`❌ RPC Failed: ${rpc}`);
+            } catch {
+                return null;
             }
+        });
+
+        const providers = await Promise.all(providerPromises);
+        const workingProvider = providers.find((provider) => provider !== null);
+
+        if (!workingProvider) {
+            throw new Error("All RPCs failed");
         }
-        throw new Error("❌ All RPC failed");
+
+        return workingProvider;
     }
 
     useEffect(() => {
@@ -252,7 +259,7 @@ export default function Home() {
                 @keyframes tremble {
                     0% { transform: translate(0, 0) rotate(0deg); }
                     20% { transform: translate(-2px, 2px) rotate(-2deg); }
-                    40bundan sonra ne yapmam gerekiyor? { transform: translate(2px, -2px) rotate(2deg); }
+                     40% { transform: translate(2px, -2px) rotate(2deg); }
                     60% { transform: translate(-2px, 0) rotate(-1deg); }
                     80% { transform: translate(2px, 0) rotate(1deg); }
                     100% { transform: translate(0, 0) rotate(0deg); }
