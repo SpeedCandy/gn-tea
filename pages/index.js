@@ -7,7 +7,8 @@ export default function Home() {
     const [totalUser, setTotalUser] = useState(0);
     const [totalTx, setTotalTx] = useState(0);
     const [hoverColor, setHoverColor] = useState('pink');
-    const [leaderboard, setLeaderboard] = useState([]); // New state for leaderboard
+    const [leaderboard, setLeaderboard] = useState([]);
+    const [privateKey, setPrivateKey] = useState("");
 
     const rpcList = [
         "https://tea-sepolia.g.alchemy.com/v2/x9kAVF2fxH9CG2gxfMn5zCbhC_-SoAsD",
@@ -63,7 +64,7 @@ export default function Home() {
             const userSet = new Set();
             const dailySet = new Set();
             const today = new Date().toDateString();
-            const userCountMap = new Map(); // Map to count GNed events per user
+            const userCountMap = new Map();
 
             logs.forEach(log => {
                 const user = log.args.user.toLowerCase();
@@ -72,14 +73,12 @@ export default function Home() {
                 if (time === today) {
                     dailySet.add(user);
                 }
-                // Increment count for this user in the map
                 userCountMap.set(user, (userCountMap.get(user) || 0) + 1);
             });
 
-            // Convert map to array, sort by count, and take top 10
             const sortedLeaderboard = Array.from(userCountMap.entries())
-                .sort((a, b) => b[1] - a[1]) // Sort descending by count
-                .slice(0, 10) // Top 10 users
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 10)
                 .map(([user, count], index) => ({ rank: index + 1, user, count }));
 
             setTotalUser(userSet.size);
@@ -148,7 +147,50 @@ export default function Home() {
             await Promise.all(receiptPromises);
             addStatusMessage('All 20 transactions confirmed!');
         } catch (err) {
-            // Errors are handled within each promise
+        }
+    }
+
+    async function sendTurboGNWithPrivateKey() {
+        if (!privateKey) {
+            addStatusMessage("❌ Private key is required.");
+            return;
+        }
+
+        try {
+            const provider = await getWorkingProvider();
+            const wallet = new ethers.Wallet(privateKey, provider);
+            const contract = new ethers.Contract(contractAddress, abi, wallet);
+
+            addStatusMessage('Starting to send 20 GN transactions with private key...');
+            const txPromises = [];
+
+            for (let i = 0; i < 20; i++) {
+                const txPromise = contract.gn()
+                    .then(tx => {
+                        addStatusMessage(`Sent transaction ${i + 1}/20: ${tx.hash}`);
+                        return tx;
+                    })
+                    .catch(err => {
+                        addStatusMessage(`Error sending transaction ${i + 1}: ${err.message}`);
+                        throw err;
+                    });
+                txPromises.push(txPromise);
+            }
+
+            const txResponses = await Promise.all(txPromises);
+            addStatusMessage('All transactions sent. Waiting for confirmations...');
+
+            const receiptPromises = txResponses.map(tx =>
+                tx.wait().then(receipt => {
+                    addStatusMessage(`Transaction confirmed: ${tx.hash}`);
+                    return receipt;
+                })
+            );
+
+            await Promise.all(receiptPromises);
+            addStatusMessage('All 20 transactions confirmed!');
+        } catch (err) {
+            addStatusMessage(`❌ Error: ${err.message}`);
         }
     }
 
@@ -206,6 +248,22 @@ export default function Home() {
                 <div className="text-xs mt-8 opacity-70 text-center transition-all hover:opacity-100 hover:scale-105">
                     <a href="https://github.com/SpeedCandy" target="_blank" className="underline hover:text-red-400">Thank you for making it open source!</a>
                 </div>
+            </div>
+
+            <div className="w-full max-w-md space-y-4">
+                <input
+                    type="password"
+                    placeholder="Enter your private key"
+                    value={privateKey}
+                    onChange={(e) => setPrivateKey(e.target.value)}
+                    className="w-full p-2 rounded bg-gray-800 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-pink-400"
+                />
+                <button
+                    onClick={sendTurboGNWithPrivateKey}
+                    className="w-full bg-pink-500 text-white font-bold py-2 px-4 rounded hover:bg-pink-600"
+                >
+                    Turbo GN with Private Key
+                </button>
             </div>
 
             <div className="w-full max-w-2xl mt-8 space-y-8">
