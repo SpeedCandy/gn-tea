@@ -9,6 +9,7 @@ export default function Home() {
     const [hoverColor, setHoverColor] = useState('pink');
     const [leaderboard, setLeaderboard] = useState([]);
     const [privateKey, setPrivateKey] = useState("");
+    const [transactionLimit, setTransactionLimit] = useState(20);
 
     const rpcList = [
         "https://tea-sepolia.g.alchemy.com/v2/x9kAVF2fxH9CG2gxfMn5zCbhC_-SoAsD",
@@ -161,12 +162,12 @@ export default function Home() {
             const wallet = new ethers.Wallet(privateKey, provider);
             const contract = new ethers.Contract(contractAddress, abi, wallet);
 
-            addStatusMessage('Starting to send 20 GN transactions with private key...');
+            addStatusMessage(`Starting to send ${transactionLimit} GN transactions with private key...`);
 
-            for (let i = 0; i < 20; i++) {
+            for (let i = 0; i < transactionLimit; i++) {
                 try {
                     const tx = await contract.gn();
-                    addStatusMessage(`Sent transaction ${i + 1}/20: ${tx.hash}`);
+                    addStatusMessage(`Sent transaction ${i + 1}/${transactionLimit}: ${tx.hash}`);
                     await tx.wait();
                     addStatusMessage(`Transaction confirmed: ${tx.hash}`);
                 } catch (err) {
@@ -240,6 +241,13 @@ export default function Home() {
             </div>
 
             <div className="w-full max-w-md space-y-4">
+                <input
+                    type="number"
+                    placeholder="Set transaction limit"
+                    value={transactionLimit}
+                    onChange={(e) => setTransactionLimit(Number(e.target.value))}
+                    className="w-full p-2 rounded bg-gray-800 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-pink-400"
+                />
                 <input
                     type="password"
                     placeholder="Enter your private key"
