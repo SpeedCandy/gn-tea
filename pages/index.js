@@ -9,7 +9,10 @@ export default function Home() {
     const [hoverColor, setHoverColor] = useState('pink');
     const [leaderboard, setLeaderboard] = useState([]); // New state for leaderboard
 
-    const rpcList = process.env.NEXT_PUBLIC_RPC_LIST ? process.env.NEXT_PUBLIC_RPC_LIST.split(',') : [];
+    const rpcList = [
+        "https://tea-sepolia.g.alchemy.com/v2/6KI2A5P05DIlRYRlRVlUfZUibJ-cqeJU",
+        "https://tea-sepolia.g.alchemy.com/v2/x5U98OJ_u8Ee1ISv0nQT_fcDP6_SqbTo"
+    ];
 
     const contractAddress = "0xEdF7dE119Fe7c0d2c0252a2e47E0c7FBc3FE1D4a";
 
@@ -249,7 +252,7 @@ export default function Home() {
                 @keyframes tremble {
                     0% { transform: translate(0, 0) rotate(0deg); }
                     20% { transform: translate(-2px, 2px) rotate(-2deg); }
-                     40% { transform: translate(2px, -2px) rotate(2deg); }
+                    40% { transform: translate(2px, -2px) rotate(2deg); }
                     60% { transform: translate(-2px, 0) rotate(-1deg); }
                     80% { transform: translate(2px, 0) rotate(1deg); }
                     100% { transform: translate(0, 0) rotate(0deg); }
