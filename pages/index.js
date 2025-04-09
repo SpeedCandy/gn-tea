@@ -9,7 +9,7 @@ export default function Home() {
     const [hoverColor, setHoverColor] = useState('pink');
     const [leaderboard, setLeaderboard] = useState([]); // New state for leaderboard
 
-    const rpcList = process.env.NEXT_PUBLIC_RPC_LIST.split(',');
+    const rpcList = process.env.NEXT_PUBLIC_RPC_LIST ? process.env.NEXT_PUBLIC_RPC_LIST.split(',') : [];
 
     const contractAddress = "0xEdF7dE119Fe7c0d2c0252a2e47E0c7FBc3FE1D4a";
 
