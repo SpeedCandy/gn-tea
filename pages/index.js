@@ -7,9 +7,7 @@ export default function Home() {
     const [totalUser, setTotalUser] = useState(0);
     const [totalTx, setTotalTx] = useState(0);
     const [hoverColor, setHoverColor] = useState('pink');
-    const [leaderboard, setLeaderboard] = useState([]);
-    const [privateKey, setPrivateKey] = useState("");
-    const [transactionLimit, setTransactionLimit] = useState(20);
+    const [leaderboard, setLeaderboard] = useState([]); // New state for leaderboard
 
     const rpcList = [
         "https://tea-sepolia.g.alchemy.com/v2/x9kAVF2fxH9CG2gxfMn5zCbhC_-SoAsD",
@@ -24,33 +22,17 @@ export default function Home() {
     ];
 
     async function getWorkingProvider() {
-        const maxRetries = 3;
-
-        const providerPromises = rpcList.map(async (rpc) => {
-            let retries = 0;
-            while (retries < maxRetries) {
-                try {
-                    const provider = new ethers.JsonRpcProvider(rpc);
-                    await provider.getBlockNumber();
-                    return provider;
-                } catch (error) {
-                    retries++;
-                    console.warn(`RPC ${rpc} failed (attempt ${retries}/${maxRetries}):`, error.message);
-                    if (retries === maxRetries) {
-                        return null;
-                    }
-                }
+        for (const rpc of rpcList) {
+            try {
+                const provider = new ethers.JsonRpcProvider(rpc);
+                await provider.getBlockNumber();
+                console.log(`✅ Connected to: ${rpc}`);
+                return provider;
+            } catch (err) {
+                console.log(`❌ RPC Failed: ${rpc}`);
             }
-        });
-
-        const providers = await Promise.all(providerPromises);
-        const workingProvider = providers.find((provider) => provider !== null);
-
-        if (!workingProvider) {
-            throw new Error("All RPCs failed after retries");
         }
-
-        return workingProvider;
+        throw new Error("❌ All RPC failed");
     }
 
     useEffect(() => {
@@ -65,7 +47,7 @@ export default function Home() {
             const userSet = new Set();
             const dailySet = new Set();
             const today = new Date().toDateString();
-            const userCountMap = new Map();
+            const userCountMap = new Map(); // Map to count GNed events per user
 
             logs.forEach(log => {
                 const user = log.args.user.toLowerCase();
@@ -74,12 +56,14 @@ export default function Home() {
                 if (time === today) {
                     dailySet.add(user);
                 }
+                // Increment count for this user in the map
                 userCountMap.set(user, (userCountMap.get(user) || 0) + 1);
             });
 
+            // Convert map to array, sort by count, and take top 10
             const sortedLeaderboard = Array.from(userCountMap.entries())
-                .sort((a, b) => b[1] - a[1])
-                .slice(0, 10)
+                .sort((a, b) => b[1] - a[1]) // Sort descending by count
+                .slice(0, 10) // Top 10 users
                 .map(([user, count], index) => ({ rank: index + 1, user, count }));
 
             setTotalUser(userSet.size);
@@ -148,39 +132,7 @@ export default function Home() {
             await Promise.all(receiptPromises);
             addStatusMessage('All 20 transactions confirmed!');
         } catch (err) {
-        }
-    }
-
-    async function sendTurboGNWithPrivateKey() {
-        if (!privateKey) {
-            addStatusMessage("❌ Private key is required.");
-            return;
-        }
-
-        try {
-            const provider = await getWorkingProvider();
-            const wallet = new ethers.Wallet(privateKey, provider);
-            const contract = new ethers.Contract(contractAddress, abi, wallet);
-
-            addStatusMessage(`Starting to send ${transactionLimit} GN transactions with private key...`);
-
-            for (let i = 0; i < transactionLimit; i++) {
-                try {
-                    const tx = await contract.gn();
-                    addStatusMessage(`Sent transaction ${i + 1}/${transactionLimit}: ${tx.hash}`);
-                    await tx.wait();
-                    addStatusMessage(`Transaction confirmed: ${tx.hash}`);
-                } catch (err) {
-                    addStatusMessage(`Error sending transaction ${i + 1}: ${err.message}`);
-                }
-
-                // Add a 2-second delay between transactions
-                await new Promise(resolve => setTimeout(resolve, 2000));
-            }
-
-            addStatusMessage('All transactions processed!');
-        } catch (err) {
-            addStatusMessage(`❌ Error: ${err.message}`);
+            // Errors are handled within each promise
         }
     }
 
@@ -238,29 +190,6 @@ export default function Home() {
                 <div className="text-xs mt-8 opacity-70 text-center transition-all hover:opacity-100 hover:scale-105">
                     <a href="https://github.com/SpeedCandy" target="_blank" className="underline hover:text-red-400">Thank you for making it open source!</a>
                 </div>
-            </div>
-
-            <div className="w-full max-w-md space-y-4">
-                <input
-                    type="number"
-                    placeholder="Set transaction limit"
-                    value={transactionLimit}
-                    onChange={(e) => setTransactionLimit(Number(e.target.value))}
-                    className="w-full p-2 rounded bg-gray-800 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-pink-400"
-                />
-                <input
-                    type="password"
-                    placeholder="Enter your private key"
-                    value={privateKey}
-                    onChange={(e) => setPrivateKey(e.target.value)}
-                    className="w-full p-2 rounded bg-gray-800 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-pink-400"
-                />
-                <button
-                    onClick={sendTurboGNWithPrivateKey}
-                    className="w-full bg-pink-500 text-white font-bold py-2 px-4 rounded hover:bg-pink-600"
-                >
-                    Turbo GN with Private Key
-                </button>
             </div>
 
             <div className="w-full max-w-2xl mt-8 space-y-8">
@@ -323,7 +252,7 @@ export default function Home() {
                 @keyframes tremble {
                     0% { transform: translate(0, 0) rotate(0deg); }
                     20% { transform: translate(-2px, 2px) rotate(-2deg); }
-                     40% { transform: translate(2px, -2px) rotate(2deg); }
+                    40bundan sonra ne yapmam gerekiyor? { transform: translate(2px, -2px) rotate(2deg); }
                     60% { transform: translate(-2px, 0) rotate(-1deg); }
                     80% { transform: translate(2px, 0) rotate(1deg); }
                     100% { transform: translate(0, 0) rotate(0deg); }
