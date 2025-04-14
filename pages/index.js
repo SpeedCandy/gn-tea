@@ -33,7 +33,11 @@ export default function Home() {
                 console.log(`✅ Connected to: ${rpc}`);
                 return provider;
             } catch (err) {
-                console.log(`❌ RPC Failed: ${rpc}`);
+                if (err.code === 429) {
+                    console.log(`❌ RPC Failed (Too Many Requests): ${rpc}`);
+                } else {
+                    console.log(`❌ RPC Failed: ${rpc}`);
+                }
             }
         }
         throw new Error("❌ All RPC failed");
@@ -256,7 +260,7 @@ export default function Home() {
                 @keyframes tremble {
                     0% { transform: translate(0, 0) rotate(0deg); }
                     20% { transform: translate(-2px, 2px) rotate(-2deg); }
-                    40bundan sonra ne yapmam gerekiyor? { transform: translate(2px, -2px) rotate(2deg); }
+                     40bundan sonra ne yapmam gerekiyor? { transform: translate(2px, -2px) rotate(2deg); }
                     60% { transform: translate(-2px, 0) rotate(-1deg); }
                     80% { transform: translate(2px, 0) rotate(1deg); }
                     100% { transform: translate(0, 0) rotate(0deg); }
