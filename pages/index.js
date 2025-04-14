@@ -14,7 +14,8 @@ export default function Home() {
         "https://tea-sepolia.g.alchemy.com/v2/hMVs30GZQ5d_sFWTYGx8ZViugptqpksK",
         "https://tea-sepolia.g.alchemy.com/v2/x5U98OJ_u8Ee1ISv0nQT_fcDP6_SqbTo",
         "https://tea-sepolia.g.alchemy.com/v2/J2o_A0I3_4Z55riic1zIZhfb7zyyahnk",
-        "https://tea-sepolia.g.alchemy.com/v2/6KI2A5P05DIlRYRlRVlUfZUibJ-cqeJU"    
+        "https://tea-sepolia.g.alchemy.com/v2/6KI2A5P05DIlRYRlRVlUfZUibJ-cqeJU",
+        "https://tea-sepolia.g.alchemy.com/v2/bsayB3hJ3hij6-t5YUUQBL5jDV-o5h2f"    
     ];
 
     const contractAddress = "0xEdF7dE119Fe7c0d2c0252a2e47E0c7FBc3FE1D4a";
