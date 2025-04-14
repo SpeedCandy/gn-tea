@@ -45,39 +45,52 @@ export default function Home() {
 
     useEffect(() => {
         async function fetchEvents() {
-            const provider = await getWorkingProvider();
-            const contract = new ethers.Contract(contractAddress, abi, provider);
+            let provider;
+            try {
+                provider = await getWorkingProvider();
+            } catch (err) {
+                console.error("Failed to get a working provider", err);
+                return;
+            }
 
-            const latestBlock = await provider.getBlockNumber();
-            const fromBlock = latestBlock - 50000 > 0 ? latestBlock - 50000 : 0;
+            try {
+                const contract = new ethers.Contract(contractAddress, abi, provider);
 
-            const logs = await contract.queryFilter("GNed", fromBlock, latestBlock);
-            const userSet = new Set();
-            const dailySet = new Set();
-            const today = new Date().toDateString();
-            const userCountMap = new Map(); // Map to count GNed events per user
+                const latestBlock = await provider.getBlockNumber();
+                const fromBlock = latestBlock - 50000 > 0 ? latestBlock - 50000 : 0;
 
-            logs.forEach(log => {
-                const user = log.args.user.toLowerCase();
-                const time = new Date(Number(log.args.timestamp) * 1000).toDateString();
-                userSet.add(user);
-                if (time === today) {
-                    dailySet.add(user);
-                }
-                // Increment count for this user in the map
-                userCountMap.set(user, (userCountMap.get(user) || 0) + 1);
-            });
+                const logs = await contract.queryFilter("GNed", fromBlock, latestBlock);
+                const userSet = new Set();
+                const dailySet = new Set();
+                const today = new Date().toDateString();
+                const userCountMap = new Map(); // Map to count GNed events per user
 
-            // Convert map to array, sort by count, and take top 10
-            const sortedLeaderboard = Array.from(userCountMap.entries())
-                .sort((a, b) => b[1] - a[1]) // Sort descending by count
-                .slice(0, 10) // Top 10 users
-                .map(([user, count], index) => ({ rank: index + 1, user, count }));
+                logs.forEach(log => {
+                    const user = log.args.user.toLowerCase();
+                    const time = new Date(Number(log.args.timestamp) * 1000).toDateString();
+                    userSet.add(user);
+                    if (time === today) {
+                        dailySet.add(user);
+                    }
+                    // Increment count for this user in the map
+                    userCountMap.set(user, (userCountMap.get(user) || 0) + 1);
+                });
 
-            setTotalUser(userSet.size);
-            setDailyCount(dailySet.size);
-            setTotalTx(logs.length);
-            setLeaderboard(sortedLeaderboard);
+                // Convert map to array, sort by count, and take top 10
+                const sortedLeaderboard = Array.from(userCountMap.entries())
+                    .sort((a, b) => b[1] - a[1]) // Sort descending by count
+                    .slice(0, 10) // Top 10 users
+                    .map(([user, count], index) => ({ rank: index + 1, user, count }));
+
+                setTotalUser(userSet.size);
+                setDailyCount(dailySet.size);
+                setTotalTx(logs.length);
+                setLeaderboard(sortedLeaderboard);
+            } catch (err) {
+                console.error("Error fetching events", err);
+                // Retry with a new provider if the current one fails
+                fetchEvents();
+            }
         }
 
         fetchEvents();
@@ -260,7 +273,7 @@ export default function Home() {
                 @keyframes tremble {
                     0% { transform: translate(0, 0) rotate(0deg); }
                     20% { transform: translate(-2px, 2px) rotate(-2deg); }
-                     40bundan sonra ne yapmam gerekiyor? { transform: translate(2px, -2px) rotate(2deg); }
+                    40% { transform: translate(2px, -2px) rotate(2deg); }
                     60% { transform: translate(-2px, 0) rotate(-1deg); }
                     80% { transform: translate(2px, 0) rotate(1deg); }
                     100% { transform: translate(0, 0) rotate(0deg); }
