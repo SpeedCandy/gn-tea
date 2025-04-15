@@ -10,8 +10,7 @@ export default function Home() {
     const [leaderboard, setLeaderboard] = useState([]); // New state for leaderboard
 
     const rpcList = [
-        "https://tea-sepolia.g.alchemy.com/v2/6KI2A5P05DIlRYRlRVlUfZUibJ-cqeJU",
-        "https://tea-sepolia.g.alchemy.com/v2/x5U98OJ_u8Ee1ISv0nQT_fcDP6_SqbTo"
+        "https://tea-sepolia.g.alchemy.com/v2/bsayB3hJ3hij6-t5YUUQBL5jDV-o5h2f"
     ];
 
     const contractAddress = "0xEdF7dE119Fe7c0d2c0252a2e47E0c7FBc3FE1D4a";
